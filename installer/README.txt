@@ -13,22 +13,8 @@ to Installed. When a new version of an installed game comes out, the
 launcher updates it automatically (never while you're playing). You can turn
 automatic updates off on the About page and update games yourself.
 
-- Card Games: Klondike, Texas Hold'em, Blackjack, Go Fish, Old Maid, Euchre
-- Hidden Object: Maple Lane Finds
-- Arcade: Solar Siege
-- Puzzle: Snugfit
-- Board Games: Chess, Checkers
-- Simulation: Rewind Life (free DEMO)
-- Education: The Appalachian Trail
-- Idle: Dookie Clicker (web game: plays online in its own window, nothing
-  to install)
-
-COMING SOON
-- Card: Hearts, Spades, Cribbage, Gin Rummy
-- Word/Trivia
-- Simulation: Lifeboat Simulator, Prison Cell Simulator, Big Top Builder,
-  Carnival Constructor
-- Board Games: Mahjong
+Open the Library in the launcher to see every game, including the ones
+coming soon.
 
 The launcher counts how many times you open each game and how long you play.
 

@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.3.2] - 2026-10-31
+
+### Changed
+- The launcher's setup no longer lists the games. The Library in the launcher shows them all.
+
 ## [2.3.1] - 2026-10-31
 
 ### Changed
