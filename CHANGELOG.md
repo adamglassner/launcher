@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.4.1] - 2026-10-31
+
+### Changed
+- Keyhole's description now mentions its new Zen and Theme vaults.
+
 ## [2.4.0] - 2026-10-31
 
 ### Added
