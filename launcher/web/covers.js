@@ -232,6 +232,24 @@
       <text x="200" y="118" text-anchor="middle" font-family="Bahnschrift,Segoe UI,sans-serif" font-weight="700" font-size="30" letter-spacing="3" fill="#f3efe6" stroke="#1d1f24" stroke-width="4" paint-order="stroke">PRISON CELL</text>
       <text x="200" y="142" text-anchor="middle" font-family="Bahnschrift,Segoe UI,sans-serif" font-weight="700" font-size="15" letter-spacing="8" fill="#e8873a" stroke="#1d1f24" stroke-width="3" paint-order="stroke">SIMULATOR</text>`),
 
+    bigtop: () => svg('0 0 400 500', `<defs><linearGradient id="bts" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1446"/><stop offset=".55" stop-color="#5a2a6a"/><stop offset="1" stop-color="#e8873a"/></linearGradient><clipPath id="btc"><path d="M80 330 L200 170 L320 330Z"/></clipPath></defs>
+      <rect width="400" height="500" fill="url(#bts)"/>
+      ${[[40, 60], [110, 40], [330, 50], [360, 120], [60, 140], [250, 30]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2" fill="#fff4d0"/>`).join('')}
+      <g transform="translate(320 190)">${Array.from({ length: 12 }, (_, i) => `<path d="M0 0 L${Math.cos(i * Math.PI / 6) * 26} ${Math.sin(i * Math.PI / 6) * 26}" stroke="${['#ffd23f', '#ff5fb4', '#5ec8f0'][i % 3]}" stroke-width="3"/>`).join('')}</g>
+      <g transform="translate(70 230)"><circle r="44" fill="none" stroke="#f3e6c8" stroke-width="4"/>${Array.from({ length: 8 }, (_, i) => `<path d="M0 0 L${Math.cos(i * Math.PI / 4) * 44} ${Math.sin(i * Math.PI / 4) * 44}" stroke="#f3e6c8" stroke-width="2"/><rect x="${Math.cos(i * Math.PI / 4) * 44 - 6}" y="${Math.sin(i * Math.PI / 4) * 44 - 4}" width="12" height="10" rx="2" fill="${['#e84a5f', '#ffd23f', '#5ec8f0', '#5fc489'][i % 4]}"/>`).join('')}<path d="M-20 70 L0 0 L20 70" stroke="#f3e6c8" stroke-width="4" fill="none"/></g>
+      <rect x="0" y="380" width="400" height="120" fill="#3a7a3a"/><rect x="0" y="380" width="400" height="6" fill="#4f9a4a"/>
+      <g clip-path="url(#btc)"><rect x="80" y="170" width="240" height="160" fill="#f3e6c8"/>${Array.from({ length: 7 }, (_, i) => `<path d="M200 170 L${92 + i * 36} 330 L${110 + i * 36} 330Z" fill="#c8312b"/>`).join('')}</g>
+      <path d="M80 330 Q100 344 120 330 Q140 344 160 330 Q180 344 200 330 Q220 344 240 330 Q260 344 280 330 Q300 344 320 330" fill="#ffd23f" stroke="#8a3a20" stroke-width="2"/>
+      <rect x="92" y="336" width="216" height="50" fill="#f3e6c8"/>${Array.from({ length: 6 }, (_, i) => `<rect x="${92 + i * 36}" y="336" width="18" height="50" fill="#c8312b"/>`).join('')}
+      <path d="M176 386 V352 Q200 334 224 352 V386Z" fill="#1d1d24"/><path d="M176 352 Q200 334 224 352" stroke="#ffd23f" stroke-width="4" fill="none"/>
+      <rect x="198" y="140" width="4" height="32" fill="#5a3a20"/><path d="M202 142 L232 150 L202 158Z" fill="#ffd23f"/>
+      <path d="M80 330 L40 384 M320 330 L360 384" stroke="#5a3a20" stroke-width="2"/>
+      ${[[30, 420], [64, 440], [330, 430], [366, 416], [300, 456]].map(([x, y], i) => `<g transform="translate(${x} ${y})"><circle cy="-30" r="8" fill="#e9b28a"/><rect x="-8" y="-22" width="16" height="22" rx="4" fill="${['#5e9ef0', '#e8873a', '#c86ad8', '#5fc489', '#e84a5f'][i]}"/></g>`).join('')}
+      <path d="M0 404 Q200 380 400 404" stroke="rgba(255,244,208,.6)" stroke-width="2" fill="none"/>
+      ${Array.from({ length: 11 }, (_, i) => `<circle cx="${i * 40 + 4}" cy="${404 - Math.sin(i / 10 * Math.PI) * 18}" r="4" fill="${['#ffd23f', '#ff5fb4', '#5ec8f0'][i % 3]}"/>`).join('')}
+      <text x="200" y="86" text-anchor="middle" font-family="Bahnschrift,Segoe UI,sans-serif" font-weight="700" font-size="44" letter-spacing="4" fill="#ffd23f" stroke="#1b1446" stroke-width="5" paint-order="stroke">BIG TOP</text>
+      <text x="200" y="120" text-anchor="middle" font-family="Bahnschrift,Segoe UI,sans-serif" font-weight="700" font-size="22" letter-spacing="10" fill="#f3e6c8" stroke="#1b1446" stroke-width="4" paint-order="stroke">BUILDER</text>`),
+
     appalachian: () => svg('0 0 400 500', `<defs><linearGradient id="ats" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6c98a"/><stop offset=".5" stop-color="#e8a06a"/><stop offset="1" stop-color="#b8775a"/></linearGradient></defs>
       <rect width="400" height="500" fill="url(#ats)"/>
       <path d="M0 250 Q60 190 120 220 T240 200 T400 215 V500 H0Z" fill="#7a6a8a" opacity=".7"/>

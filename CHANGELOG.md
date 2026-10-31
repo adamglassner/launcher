@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.1.0] - 2026-10-31
+
+### Added
+- Big Top Builder, a circus management sim, is now listed in Simulation as Coming Soon, with its own cover art.
+
 ## [2.0.2] - 2026-10-31
 
 ### Fixed
