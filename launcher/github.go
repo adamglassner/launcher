@@ -100,6 +100,7 @@ type releaseCache struct {
 	Repos   map[string]*cachedRelease `json:"repos"`
 	Catalog json.RawMessage           `json:"catalog,omitempty"`
 	CatETag string                    `json:"catalogEtag,omitempty"`
+	CatVer  string                    `json:"catalogLauncherVersion,omitempty"` // launcher version that saved Catalog
 
 	apiPausedUntil time.Time
 }
@@ -112,6 +113,11 @@ func loadReleaseCache() *releaseCache {
 		_ = json.Unmarshal(b, c)
 		if c.Repos == nil {
 			c.Repos = map[string]*cachedRelease{}
+		}
+		// A game list saved by an older launcher can be older than the one built
+		// into this version, so start from the built-in list and fetch afresh.
+		if c.CatVer != version {
+			c.Catalog, c.CatETag = nil, ""
 		}
 	}
 	return c
@@ -318,7 +324,7 @@ func (c *releaseCache) fetchCatalog() {
 		return // only catalogs written for this launcher generation
 	}
 	c.mu.Lock()
-	c.Catalog, c.CatETag = b, resp.Header.Get("ETag")
+	c.Catalog, c.CatETag, c.CatVer = b, resp.Header.Get("ETag"), version
 	c.save()
 	c.mu.Unlock()
 }

@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.2.1] - 2026-10-31
+
+### Fixed
+- After the launcher updated itself, it could keep showing the game list from before the update, so newly added games (like Carnival Constructor) were missing until much later. It now shows the new list straight away.
+
 ## [2.2.0] - 2026-10-31
 
 ### Added
