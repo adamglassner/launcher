@@ -46,6 +46,7 @@ Installed launchers update themselves.
 | Snugfit | [adamglassner/snugfit](https://github.com/adamglassner/snugfit) | `Snugfit-Setup-<v>.exe` |
 | Chess | [adamglassner/chess](https://github.com/adamglassner/chess) | `Chess-<v>-windows.zip` |
 | Checkers | [adamglassner/checkers](https://github.com/adamglassner/checkers) | `Checkers-<v>-windows.zip` |
+| The Appalachian Trail | [adamglassner/appalachiantrail](https://github.com/adamglassner/appalachiantrail) | `AppalachianTrail-<v>-Windows-Portable.zip` |
 | Rewind Life (demo) | [adamglassner/RewindLife](https://github.com/adamglassner/RewindLife) | `RewindLife-<v>-windows.zip` |
 
 Each game repository has a Release workflow that publishes a new release when its

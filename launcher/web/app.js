@@ -271,7 +271,6 @@
   /* ---------- details / dialogs ---------- */
   function openModal() { $('#modal').classList.remove('hidden'); }
   function closeModal() { $('#modal').classList.add('hidden'); modalId = null; }
-  function openGitHub(url) { api('/api/open', { url }).catch(e => toast(e.message)); }
   function details(id) {
     const g = game(id); modalId = id;
     $('#mArt').innerHTML = cover(id);
@@ -299,9 +298,7 @@
         ${s.error ? '<button class="btn ghost small" data-retry>Try again</button>' : ''}
         ${s.installed && s.update && !s.running && !s.installing ? '<button class="btn ghost small" data-act="play">▶&nbsp; Play ' + esc(s.installedVersion) + '</button>' : ''}
         ${s.installed && !s.running && !s.installing ? '<button class="btn danger" data-act="uninstall">Uninstall</button>' : ''}
-        ${s.releaseUrl ? '<button class="linkbtn" data-gh>View on GitHub</button>' : ''}
         <button class="btn ghost small" data-close>Close</button>`;
-      const gh = $('#mActions').querySelector('[data-gh]'); if (gh) gh.onclick = () => openGitHub(s.releaseUrl);
       const rt = $('#mActions').querySelector('[data-retry]');
       if (rt) rt.onclick = async () => { await api('/api/dismiss', { id }).catch(() => { }); delete state.games[id].error; act(id, 'install'); };
     }
@@ -318,8 +315,7 @@
     $('#mDesc').textContent = '';
     $('#mMeta').innerHTML = '';
     $('#mNotes').innerHTML = `<div class="notes">${notesHtml(notes) || '<p>Improvements and fixes.</p>'}</div>`;
-    $('#mActions').innerHTML = `${url ? '<button class="linkbtn" data-gh>View on GitHub</button>' : ''}<button class="btn ghost small" data-close>Close</button>`;
-    const gh = $('#mActions').querySelector('[data-gh]'); if (gh) gh.onclick = () => openGitHub(url);
+    $('#mActions').innerHTML = '<button class="btn ghost small" data-close>Close</button>';
     $('#mActions').querySelector('[data-close]').onclick = closeModal;
     openModal();
   }
@@ -386,7 +382,6 @@
     try { const r = await api('/api/autoupdate', { on: !state.autoUpdate }); state.autoUpdate = r.autoUpdate; renderAbout(); toast(`Automatic game updates are ${state.autoUpdate ? 'on' : 'off'}.`); }
     catch (e) { toast(e.message); }
   };
-  $('#abRepo').onclick = () => openGitHub('https://github.com/adamglassner/launcher');
 
   /* ---------- nav ---------- */
   function renderAll() {

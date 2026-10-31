@@ -19,6 +19,7 @@ automatic updates off on the About page and update games yourself.
 - Puzzle: Snugfit
 - Board Games: Chess, Checkers
 - Simulation: Rewind Life (free DEMO)
+- Education: The Appalachian Trail
 - Idle: Dookie Clicker (web game: plays online in its own window, nothing
   to install)
 
@@ -26,7 +27,6 @@ COMING SOON
 - Card: Hearts, Spades, Cribbage, Gin Rummy
 - Word/Trivia
 - Simulation: Lifeboat Simulator, Prison Cell Simulator
-- Education: The Appalachian Trail
 - Board Games: Mahjong
 
 The launcher counts how many times you open each game and how long you play.

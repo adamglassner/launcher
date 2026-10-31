@@ -54,7 +54,7 @@ VIAddVersionKey "LegalCopyright"  "Copyright (c) 2026 Ironite. All rights reserv
 !define MUI_ABORTWARNING
 
 !define MUI_WELCOMEPAGE_TITLE "Welcome to the ${PRODUCT} ${VERSION} setup"
-!define MUI_WELCOMEPAGE_TEXT "This will install Ironite Launcher on your computer.$\r$\n$\r$\nThe launcher downloads Ironite games from GitHub and keeps them up to date: Klondike, Texas Hold'em, Blackjack, Go Fish, Old Maid and Euchre (Card), Maple Lane Finds (Hidden Object), Solar Siege (Arcade), Snugfit (Puzzle), Chess and Checkers (Board Games), the Rewind Life demo (Simulation), plus Dookie Clicker (plays online). It updates itself too.$\r$\n$\r$\nClick Next to continue."
+!define MUI_WELCOMEPAGE_TEXT "This will install Ironite Launcher on your computer.$\r$\n$\r$\nThe launcher downloads Ironite games from GitHub and keeps them up to date: Klondike, Texas Hold'em, Blackjack, Go Fish, Old Maid and Euchre (Card), Maple Lane Finds (Hidden Object), Solar Siege (Arcade), Snugfit (Puzzle), Chess and Checkers (Board Games), the Rewind Life demo (Simulation), The Appalachian Trail (Education), plus Dookie Clicker (plays online). It updates itself too.$\r$\n$\r$\nClick Next to continue."
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
@@ -193,6 +193,8 @@ Section "Uninstall"
   nsProcess::_KillProcess "Checkers.exe"
   Pop $0
   nsProcess::_KillProcess "RewindLife.exe"
+  Pop $0
+  nsProcess::_KillProcess "AppalachianTrail.exe"
   Pop $0
   Sleep 300
 
