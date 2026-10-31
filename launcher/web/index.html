@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ironite Launcher</title>
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <aside id="side">
+    <div class="brand">
+      <img src="ironite-logo.png" alt="Ironite" class="logo">
+      <div class="b2">Launcher</div>
+    </div>
+    <nav id="nav">
+      <button data-view="all" class="on"><span class="ni">▦</span>Library</button>
+      <button data-view="installed"><span class="ni">✓</span>Installed<span class="badge hidden" id="instCount">0</span></button>
+      <button data-view="card"><span class="ni">♠</span>Card Games</button>
+      <button data-view="hidden"><span class="ni">⌕</span>Hidden Object</button>
+      <button data-view="arcade"><span class="ni">◆</span>Arcade</button>
+      <button data-view="puzzle"><span class="ni">▣</span>Puzzle</button>
+      <button data-view="word"><span class="ni">A</span>Word/Trivia</button>
+      <button data-view="sim"><span class="ni">⌂</span>Simulation</button>
+      <button data-view="idle"><span class="ni">↻</span>Idle</button>
+      <button data-view="edu"><span class="ni">✎</span>Education</button>
+      <button data-view="board"><span class="ni">♞</span>Board Games</button>
+      <div class="sep"></div>
+      <button data-view="news"><span class="ni">✦</span>What's New</button>
+      <button data-view="about"><span class="ni">i</span>About</button>
+    </nav>
+    <div class="side-foot">
+      <div class="chk small muted" id="chk"></div>
+      <div class="ver" id="verSide">v—</div>
+      <div class="muted small">© 2026 Ironite</div>
+    </div>
+  </aside>
+
+  <main id="main">
+    <div id="lbanner" class="hidden"></div>
+    <section id="vLibrary">
+      <div id="hero"></div>
+      <div id="cats"></div>
+    </section>
+    <section id="vNews" class="page hidden">
+      <h1>What's New</h1>
+      <p class="muted" id="newsSub"></p>
+      <div id="changelog"></div>
+    </section>
+    <section id="vAbout" class="page hidden">
+      <h1>About</h1>
+      <div class="about-card">
+        <div class="about-row"><span>Product</span><b>Ironite Launcher</b></div>
+        <div class="about-row"><span>Launcher version</span><b id="abVer">—</b></div>
+        <div class="about-row"><span>Launcher platforms</span><b class="about-plats"><span class="plat">&#8862; Windows</span><span class="plat soon">&#8984; macOS <em>coming soon</em></span><span class="plat soon">&#9830; Linux <em>coming soon</em></span></b></div>
+        <div class="about-row"><span>Build</span><b id="abBuild">—</b></div>
+        <div class="about-row"><span>Games</span><b id="abGames">—</b></div>
+        <div class="about-row"><span>Total time played</span><b id="abTime">—</b></div>
+        <div class="about-row"><span>Install folder</span><b id="abDir" class="mono">—</b></div>
+        <div class="about-row"><span>Games folder</span><b id="abGamesDir" class="mono">—</b></div>
+      </div>
+      <h3 class="ab-h">Updates</h3>
+      <div class="about-card">
+        <div class="about-row"><span>Update games automatically<small>Installed games download new versions from GitHub as soon as they're released (never while you're playing).</small></span><b><button id="abAuto" class="switch" role="switch" aria-checked="true"><i></i></button> <em id="abAutoTxt">On</em></b></div>
+        <div class="about-row"><span>Last checked</span><b id="abChecked">—</b></div>
+        <div class="about-row"><span>Where updates come from</span><b>Each game's own GitHub repository · launcher: <button class="linkbtn" id="abRepo">adamglassner/launcher</button></b></div>
+      </div>
+      <p class="muted">All games, art and music in Ironite Launcher are original works by Ironite. Copyright © 2026 Ironite. All rights reserved.</p>
+    </section>
+  </main>
+</div>
+
+<div id="modal" class="veil hidden">
+  <div class="dlg">
+    <div id="mArt" class="dlg-art"></div>
+    <div class="dlg-body">
+      <div id="mPill"></div>
+      <h2 id="mTitle"></h2>
+      <div class="muted" id="mSub"></div>
+      <p id="mDesc"></p>
+      <div id="mNotes"></div>
+      <div class="meta dlg-meta" id="mMeta"></div>
+      <div class="actions" id="mActions"></div>
+    </div>
+  </div>
+</div>
+<div id="toast" class="hidden"></div>
+
+<script src="covers.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

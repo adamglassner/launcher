@@ -1,0 +1,37 @@
+//go:build !windows
+
+package main
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+)
+
+// Non-Windows stubs, used only for development and testing.
+func fatal(text string)                { fmt.Fprintln(os.Stderr, text); os.Exit(1) }
+func singleInstance() bool             { return true }
+func openWindow(string) (func(), bool) { return nil, false }
+func openDefaultBrowser(url string)    { fmt.Println("Open:", url) }
+
+// Test stand-in for a Windows game: a process that stays open until killed.
+func gameCommand(exe, dir string) *exec.Cmd {
+	cmd := exec.Command("sleep", "86400")
+	cmd.Dir = dir
+	return cmd
+}
+
+// Test stand-in for a web game window.
+func webGameCommand(url, profile string) (*exec.Cmd, error) {
+	return exec.Command("sleep", "86400"), nil
+}
+
+// Setup programs only run on Windows.
+func runAndWait(file, args, dir string) (int, error) {
+	return -1, errors.New("setup programs only run on Windows")
+}
+func startSelfUpdate(setup string) error {
+	fmt.Println("would run", setup, "/S /relaunch")
+	return nil
+}
