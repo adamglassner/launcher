@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.4.0] - 2026-10-31
+
+### Added
+- Keyhole, the daily word vault, is now available to install from Word/Trivia. It downloads and updates from its own GitHub repository like the other games.
+
 ## [2.3.2] - 2026-10-31
 
 ### Changed
