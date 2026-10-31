@@ -217,7 +217,7 @@
   function tile(g, where) {
     const soon = !avail(g), s = st(g.id), wide = isPlaceholder(g), p = soon ? null : primary(g.id);
     let sub = soon ? 'Coming soon · ' + esc(g.players) : esc(g.subtitle) + ' · ' + esc(g.players);
-    if (where === 'installed') sub = (s.installedVersion ? `v${esc(s.installedVersion)} · ` : '') + `Played ${dur(played(s))}`;
+    if (where === 'installed') sub = (isWeb(g) ? 'Web game · ' : s.installedVersion ? `v${esc(s.installedVersion)} · ` : '') + `Played ${dur(played(s))}`;
     const icon = !p || !p.act ? '' : p.act === 'play' ? '▶' : s.update ? '⟳' : '⬇';
     const chip = icon ? `<span class="playchip ${p.act === 'play' ? 'go' : s.update ? 'up' : ''}" data-act="${p.act}" title="${p.act === 'play' ? 'Play' : s.update ? 'Update to ' + esc(s.latestVersion) : 'Install'}">${icon}</span>` : '';
     return `<button class="tile ${soon ? 'soon' : ''} ${wide ? 'wide' : ''} ${demo(g) ? 'isdemo' : ''}" data-id="${g.id}">
@@ -227,8 +227,9 @@
       ${s.installing ? `<span class="tbar"><i style="width:${s.progress || 0}%"></i></span>` : ''}
     </button>`;
   }
-  const installedGames = () => catalog.games.filter(g => !isWeb(g) && (st(g.id).installed || st(g.id).installing));
-  const updatable = () => installedGames().filter(g => st(g.id).update && !st(g.id).installing && !st(g.id).running);
+  // Web games need no install, so they're always in Installed.
+  const installedGames = () => catalog.games.filter(g => isWeb(g) ? avail(g) : (st(g.id).installed || st(g.id).installing));
+  const updatable = () => installedGames().filter(g => !isWeb(g) && st(g.id).update && !st(g.id).installing && !st(g.id).running);
 
   function section(title, count, blurb, list, where, extra = '') {
     return `<div class="cat"><div class="cat-h"><h2>${esc(title)}</h2><span class="count">${count}</span>${extra}</div>
@@ -262,7 +263,7 @@
       details(t.dataset.id);
     });
     document.querySelectorAll('[data-upall]').forEach(b => b.onclick = () => updatable().forEach(g => act(g.id, 'install')));
-    const n = installedGames().filter(g => st(g.id).installed).length;
+    const n = installedGames().filter(g => isWeb(g) || st(g.id).installed).length;
     $('#instCount').textContent = n; $('#instCount').title = ups.length ? `${ups.length} update${ups.length > 1 ? 's' : ''} available` : '';
     $('#instCount').classList.toggle('upd', !!ups.length);
     $('#instCount').classList.toggle('hidden', !n);
