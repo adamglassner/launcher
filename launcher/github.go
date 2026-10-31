@@ -100,6 +100,8 @@ type releaseCache struct {
 	Repos   map[string]*cachedRelease `json:"repos"`
 	Catalog json.RawMessage           `json:"catalog,omitempty"`
 	CatETag string                    `json:"catalogEtag,omitempty"`
+
+	apiPausedUntil time.Time
 }
 
 func cacheFile() string { return filepath.Join(cacheDir(), "releases.json") }
@@ -142,13 +144,91 @@ func (c *releaseCache) known(repo string) bool {
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}
 
-var errRateLimited = errors.New("GitHub is busy right now (rate limit); the launcher will try again later")
+var errRateLimited = errors.New("GitHub is busy right now; the launcher will check again in a few minutes")
 
-// fetchLatest asks GitHub for a repo's latest published release.
+func webBase() string {
+	if v := os.Getenv("IRONITE_GITHUB_WEB"); v != "" { // tests use a local mock
+		return strings.TrimRight(v, "/")
+	}
+	return "https://github.com"
+}
+
+// noRedirect reads a redirect's Location instead of following it.
+var noRedirect = &http.Client{
+	Timeout:       20 * time.Second,
+	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+}
+
+// latestTag asks github.com (not the API, so it doesn't use up the API's
+// hourly allowance) which tag a repo's latest release has: the web page
+// /<repo>/releases/latest redirects to /<repo>/releases/tag/<tag>.
+// found is false when the repo has no published release.
+func latestTag(repo string) (tag string, found bool, err error) {
+	url := webBase() + "/" + repo + "/releases/latest"
+	for hop := 0; hop < 3; hop++ {
+		req, _ := http.NewRequest("HEAD", url, nil)
+		req.Header.Set("User-Agent", "IroniteLauncher/"+version)
+		resp, err := noRedirect.Do(req)
+		if err != nil {
+			return "", false, err
+		}
+		resp.Body.Close()
+		loc := resp.Header.Get("Location")
+		switch {
+		case resp.StatusCode >= 300 && resp.StatusCode < 400 && loc != "":
+			if i := strings.Index(loc, "/releases/tag/"); i >= 0 {
+				t := loc[i+len("/releases/tag/"):]
+				if j := strings.IndexAny(t, "?#"); j >= 0 {
+					t = t[:j]
+				}
+				t = strings.ReplaceAll(t, "%2B", "+")
+				return t, true, nil
+			}
+			if strings.HasSuffix(loc, "/releases/latest") { // the repo was renamed
+				if strings.HasPrefix(loc, "/") {
+					loc = webBase() + loc
+				}
+				url = loc
+				continue
+			}
+			return "", false, nil // redirected to the empty releases page
+		case resp.StatusCode == http.StatusNotFound:
+			return "", false, nil
+		case resp.StatusCode == http.StatusTooManyRequests:
+			return "", false, errRateLimited
+		default:
+			return "", false, fmt.Errorf("%s: github.com answered %s", repo, resp.Status)
+		}
+	}
+	return "", false, fmt.Errorf("%s: too many redirects", repo)
+}
+
+// fetchLatest brings a repo's cached latest release up to date. It asks
+// github.com for the latest tag first, and only calls the GitHub API (60
+// requests an hour without signing in) when there's a release it hasn't seen.
 func (c *releaseCache) fetchLatest(repo string) error {
 	key := strings.ToLower(repo)
+	tag, found, terr := latestTag(repo)
 	c.mu.Lock()
 	prev := c.Repos[key]
+	if terr == nil {
+		if !found {
+			c.Repos[key] = &cachedRelease{Checked: time.Now()} // "coming soon"
+			c.save()
+			c.mu.Unlock()
+			return nil
+		}
+		if prev != nil && prev.Release != nil && prev.Release.Tag == tag {
+			prev.Checked = time.Now() // nothing new
+			c.save()
+			c.mu.Unlock()
+			return nil
+		}
+	}
+	if time.Now().Before(c.apiPausedUntil) {
+		c.mu.Unlock()
+		return errRateLimited
+	}
 	etag := ""
 	if prev != nil {
 		etag = prev.ETag
@@ -188,6 +268,13 @@ func (c *releaseCache) fetchLatest(repo string) error {
 		// No release yet (or the repo is private): the game is "coming soon".
 		c.Repos[key] = &cachedRelease{Checked: time.Now()}
 	case resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests:
+		// Out of API requests for now: wait until GitHub says the allowance resets.
+		until := time.Now().Add(10 * time.Minute)
+		if v, err := strconv.ParseInt(resp.Header.Get("X-RateLimit-Reset"), 10, 64); err == nil && v > 0 {
+			until = time.Unix(v, 0).Add(5 * time.Second)
+		}
+		c.apiPausedUntil = until
+		log.Printf("GitHub API allowance used up; pausing API calls until %s", until.Format("15:04:05"))
 		return errRateLimited
 	default:
 		return fmt.Errorf("%s: GitHub answered %s", repo, resp.Status)

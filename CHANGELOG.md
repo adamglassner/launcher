@@ -4,6 +4,19 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.0.2] - 2026-10-31
+
+### Fixed
+- Update checks no longer run out of GitHub's hourly allowance, which made the launcher say it was offline. The launcher now asks github.com which version is newest and only downloads release details when something has changed.
+- The launcher closes properly when you close its window, so it opens again straight away instead of saying it's already running.
+- Opening the launcher while it's still running in the background (for example while a game is open) brings its window back instead of showing a message.
+- A launcher that has stopped responding is closed automatically the next time you open it.
+
+### Changed
+- The launcher now updates itself automatically when a new version is out (Windows asks for permission first). Turning off automatic updates on the About page turns this off too.
+- When GitHub asks the launcher to slow down, the sidebar says "GitHub is busy" instead of "Offline".
+- If a game doesn't start, or closes right after starting, the launcher says so and suggests what to do. If its program has gone missing (for example removed by Windows Security), Install downloads it again.
+
 ## [2.0.1] - 2026-10-30
 
 ### Added

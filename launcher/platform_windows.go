@@ -7,7 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -29,24 +31,69 @@ func msgBox(text string, flags uintptr) {
 }
 func fatal(text string) { msgBox(text, 0x10); os.Exit(1) }
 
-// singleInstance returns false (after focusing the open window) if the
-// launcher is already running.
+// singleInstance takes the launcher's lock. It returns false if another
+// launcher already holds it.
 func singleInstance() bool {
 	if pSetDpiAwareCtx.Find() == nil {
 		pSetDpiAwareCtx.Call(^uintptr(3)) // PER_MONITOR_AWARE_V2 (-4)
 	}
-	_, _, err := pCreateMutex.Call(0, 0, uintptr(unsafe.Pointer(u16(`Local\IroniteLauncher`))))
+	return takeLock()
+}
+
+func takeLock() bool {
+	h, _, err := pCreateMutex.Call(0, 0, uintptr(unsafe.Pointer(u16(`Local\IroniteLauncher`))))
 	if err == syscall.Errno(183) { // ERROR_ALREADY_EXISTS
-		title := productName + " " + version
-		if h, _, _ := pFindWindow.Call(0, uintptr(unsafe.Pointer(u16(title)))); h != 0 {
-			pShowWindow.Call(h, 9) // SW_RESTORE
-			pSetForeground.Call(h)
-		} else {
-			msgBox("The "+productName+" launcher is already open.", 0x40)
-		}
+		pCloseHandle.Call(h) // let go, so the lock disappears when the other launcher exits
 		return false
 	}
+	return h != 0
+}
+
+// waitForLock waits up to 8 seconds for a closing launcher to let go.
+func waitForLock() bool {
+	for i := 0; i < 40; i++ {
+		if takeLock() {
+			return true
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	return false
+}
+
+// focusWindow brings an open launcher window to the front.
+func focusWindow(title string) bool {
+	h, _, _ := pFindWindow.Call(0, uintptr(unsafe.Pointer(u16(title))))
+	if h == 0 {
+		return false
+	}
+	pShowWindow.Call(h, 9) // SW_RESTORE
+	pSetForeground.Call(h)
 	return true
+}
+
+var (
+	pOpenProcess      = kernel32.NewProc("OpenProcess")
+	pQueryImageName   = kernel32.NewProc("QueryFullProcessImageNameW")
+	pTerminateProcess = kernel32.NewProc("TerminateProcess")
+)
+
+// killLauncher ends a launcher that stopped responding (only if that process
+// really is IroniteLauncher.exe).
+func killLauncher(pid int) {
+	h, _, _ := pOpenProcess.Call(0x1000|0x0001, 0, uintptr(pid)) // QUERY_LIMITED_INFORMATION | TERMINATE
+	if h == 0 {
+		return
+	}
+	defer pCloseHandle.Call(h)
+	buf := make([]uint16, 1024)
+	n := uint32(len(buf))
+	if r, _, _ := pQueryImageName.Call(h, 0, uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&n))); r == 0 {
+		return
+	}
+	if !strings.EqualFold(filepath.Base(syscall.UTF16ToString(buf[:n])), "IroniteLauncher.exe") {
+		return
+	}
+	pTerminateProcess.Call(h, 1)
 }
 
 func findBrowser() string {
@@ -81,6 +128,7 @@ func openWindow(url string) (func(), bool) {
 		"--user-data-dir="+profile,
 		"--window-size=1320,860",
 		"--no-first-run", "--no-default-browser-check", "--disable-extensions",
+		"--disable-background-mode", // don't keep running after the window closes
 		"--disable-features=Translate,msEdgeSidebarV2,msUndersideButton,msHubApps",
 		"--disable-pinch", "--overscroll-history-navigation=0",
 	)
@@ -111,7 +159,7 @@ func webGameCommand(url, profile string) (*exec.Cmd, error) {
 		"--app="+url,
 		"--user-data-dir="+profile,
 		"--window-size=1280,860",
-		"--no-first-run", "--no-default-browser-check",
+		"--no-first-run", "--no-default-browser-check", "--disable-background-mode",
 		"--disable-features=Translate,msEdgeSidebarV2,msUndersideButton,msHubApps",
 	), nil
 }

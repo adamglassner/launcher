@@ -145,7 +145,7 @@
       ? `<button class="btn play small" disabled>Downloading <span class="bar"><i style="width:${u.progress}%"></i></span> ${u.progress}%</button>`
       : `<button class="btn play small" data-self>⟳&nbsp; Update now</button>`;
     b.innerHTML = `<div class="lb-txt"><b>Ironite Launcher ${esc(u.version)} is available</b>
-      <span>${u.error ? esc(u.error) : `You have ${esc(state.version)}. The launcher closes, updates and opens again by itself.`}</span></div>
+      <span>${u.error ? esc(u.error) : u.downloading ? 'Downloading the update. The launcher will close, update and open again by itself (Windows asks for permission first).' : `You have ${esc(state.version)}. The launcher closes, updates and opens again by itself.`}</span></div>
       <div class="actions">${btn}<button class="btn ghost small" data-notes>What's new</button></div>`;
     const s = b.querySelector('[data-self]');
     if (s) s.onclick = async () => {
@@ -158,6 +158,7 @@
     const el = $('#chk');
     let txt;
     if (state.checking) txt = '<span class="spin"></span> Checking GitHub…';
+    else if (state.checkError && state.checkBusy) txt = `<span class="warn" title="${esc(state.checkError)}">⚠</span> GitHub is busy · will retry`;
     else if (state.checkError) txt = `<span class="warn" title="${esc(state.checkError)}">⚠</span> Offline · <button class="linkbtn" data-chk>Retry</button>`;
     else if (state.lastCheck) txt = `Checked GitHub ${since(state.lastCheck)} · <button class="linkbtn" data-chk>Check</button>`;
     else txt = '<span class="spin"></span> Checking GitHub…';
@@ -293,6 +294,7 @@
       $('#mMeta').innerHTML = `<span class="mplats">Plays on ${plays(g)}</span><span>Opened <b>${opens(s.playCount)}</b></span><span>Played <b>${dur(played(s))}</b></span><span>Last played <b>${ago(s.lastPlayed)}</b></span>` +
         (s.installed && s.installedAt ? `<span>Installed <b>${ago(s.installedAt)}</b></span>` : '');
       if (s.error) $('#mNotes').innerHTML = `<div class="err">${esc(s.error)}</div>`;
+      else if (s.launchError) $('#mNotes').innerHTML = `<div class="err">${esc(s.launchError)}</div>`;
       else if (s.notes) $('#mNotes').innerHTML = `<div class="notes"><div class="nh">${s.update ? 'New in' : 'What’s new in'} version ${esc(s.latestVersion)}${s.publishedAt ? ` <span>· ${ago(s.publishedAt)}</span>` : ''}</div>${notesHtml(s.notes)}</div>`;
       $('#mActions').innerHTML = `<button class="btn ${p.cls} small" data-act="${p.act || ''}" ${p.act ? '' : 'disabled'}>${p.html}</button>
         ${s.error ? '<button class="btn ghost small" data-retry>Try again</button>' : ''}
@@ -409,6 +411,9 @@
     try {
       const s = await api('/api/state');
       if (s.catalogSize !== lastCat) { catalog = await api('/api/catalog'); lastCat = s.catalogSize; state = s; return renderAll(); }
+      for (const [id, g] of Object.entries(s.games)) {
+        if (g.launchError && g.launchError !== (state.games[id] || {}).launchError) toast(g.launchError);
+      }
       const changed = JSON.stringify([s.games, s.launcherUpdate, s.autoUpdate]) !== JSON.stringify([state.games, state.launcherUpdate, state.autoUpdate]);
       const chk = s.checking !== state.checking || s.lastCheck !== state.lastCheck || s.checkError !== state.checkError;
       state = s;
@@ -436,4 +441,6 @@
   }
   init().catch(e => { document.body.innerHTML = '<p style="padding:40px">Launcher failed to start: ' + esc(e.message) + '</p>'; });
   document.addEventListener('contextmenu', e => e.preventDefault());
+  // Tell the launcher the window is closing, so it quits right away.
+  window.addEventListener('pagehide', () => { try { navigator.sendBeacon('/api/bye?t=' + encodeURIComponent(token)); } catch (e) { } });
 })();

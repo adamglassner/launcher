@@ -99,25 +99,29 @@ type gameState struct {
 	PlaySeconds      int64  `json:"playSeconds"`
 	LastPlayed       int64  `json:"lastPlayed"`
 	Error            string `json:"error,omitempty"`
+	LaunchError      string `json:"launchError,omitempty"`
 }
 
 type app struct {
-	mu       sync.Mutex
-	cat      catalog
-	catJSON  []byte
-	set      settings
-	rel      *releaseCache
-	running  map[string]*exec.Cmd
-	started  map[string]time.Time
-	credited map[string]time.Time // last time play time was saved, per running game
-	jobs     map[string]*installJob
-	token    string
-	lastSeen atomic.Int64
-	seen     atomic.Bool
+	mu        sync.Mutex
+	cat       catalog
+	catJSON   []byte
+	set       settings
+	rel       *releaseCache
+	running   map[string]*exec.Cmd
+	started   map[string]time.Time
+	credited  map[string]time.Time // last time play time was saved, per running game
+	jobs      map[string]*installJob
+	launchErr map[string]string // why a game didn't start
+	token     string
+	lastSeen  atomic.Int64
+	seen      atomic.Bool
 
 	checking  bool
 	lastCheck time.Time
 	checkErr  string
+	checkBusy bool         // GitHub asked us to slow down (not offline)
+	byeAt     atomic.Int64 // when the window said it was closing
 	checkNow  chan struct{}
 	selfJob   *installJob
 }
@@ -262,6 +266,7 @@ func (a *app) states() map[string]gameState { // caller holds a.mu
 				}
 			}
 		}
+		st.LaunchError = a.launchErr[g.ID]
 		if s := a.set.Stats[g.ID]; s != nil {
 			st.PlayCount, st.LastPlayed, st.PlaySeconds = s.PlayCount, s.LastPlayed, s.PlaySeconds+live
 		}
@@ -415,13 +420,29 @@ func (a *app) launch(id string) error {
 		}
 		exe := filepath.Join(rec.Dir, rec.Exe)
 		if _, err := os.Stat(exe); err != nil {
-			return errors.New("the game's files are missing; uninstall it and install it again")
+			// Usually antivirus software removed the program. Forget the
+			// install so the Install button can download it again.
+			log.Printf("launch %s: %s is missing", id, exe)
+			a.mu.Lock()
+			delete(a.set.Installs, id)
+			a.saveSettings()
+			a.mu.Unlock()
+			return errors.New("the game's program is missing (Windows Security may have removed it); click Install to download it again")
 		}
 		cmd = gameCommand(exe, filepath.Dir(exe))
 	}
+	log.Printf("starting %s: %s", id, cmd.Path)
 	if err := cmd.Start(); err != nil {
-		return err
+		log.Printf("launch %s: %v", id, err)
+		msg := err.Error()
+		if strings.Contains(strings.ToLower(msg), "virus") {
+			return errors.New("Windows Security blocked the game from starting")
+		}
+		return fmt.Errorf("the game couldn't start (%s)", msg)
 	}
+	a.mu.Lock()
+	delete(a.launchErr, id)
+	a.mu.Unlock()
 
 	start := time.Now()
 	a.mu.Lock()
@@ -440,7 +461,22 @@ func (a *app) launch(id string) error {
 
 	// Track time played. Saved every minute so a crash loses at most a minute.
 	exited := make(chan struct{})
-	go func() { _ = cmd.Wait(); close(exited) }()
+	go func() {
+		err := cmd.Wait()
+		if took := time.Since(start); took < 8*time.Second && !g.isWeb() {
+			code := -1
+			if cmd.ProcessState != nil {
+				code = cmd.ProcessState.ExitCode()
+			}
+			if code != 0 {
+				log.Printf("%s exited after %s with code %d (%v)", id, took.Round(time.Millisecond), code, err)
+				a.mu.Lock()
+				a.launchErr[id] = fmt.Sprintf("%s closed right after it started (exit code %d). If Windows Security showed a warning, allow the game there, then try again.", g.Title, code)
+				a.mu.Unlock()
+			}
+		}
+		close(exited)
+	}()
 	go func() {
 		last := start
 		tick := time.NewTicker(time.Minute)
@@ -495,6 +531,7 @@ func (a *app) requestCheck() {
 func (a *app) updateLoop() {
 	for {
 		a.checkAll()
+		a.autoSelfUpdate()
 		a.autoInstallUpdates()
 		select {
 		case <-a.checkNow:
@@ -562,15 +599,32 @@ func (a *app) checkAll() {
 	a.mu.Lock()
 	a.checking = false
 	a.lastCheck = time.Now()
-	a.checkErr = ""
+	a.checkErr, a.checkBusy = "", false
 	if firstErr != nil {
 		if errors.Is(firstErr, errRateLimited) {
-			a.checkErr = errRateLimited.Error()
+			a.checkErr, a.checkBusy = errRateLimited.Error(), true
 		} else {
 			a.checkErr = "Couldn't reach GitHub to check for updates. Check your internet connection."
 		}
 	}
 	a.mu.Unlock()
+}
+
+// autoSelfUpdate updates the launcher as soon as a new version is out, like
+// the games, unless automatic updates are off or something is in progress.
+func (a *app) autoSelfUpdate() {
+	a.mu.Lock()
+	ok := a.autoUpdate() && a.selfJob == nil && len(a.running) == 0 && a.launcherUpdate() != nil
+	for _, j := range a.jobs {
+		if j.err == "" {
+			ok = false
+		}
+	}
+	a.mu.Unlock()
+	if ok {
+		log.Printf("updating the launcher automatically")
+		logErr("self-update", a.selfUpdate(""))
+	}
 }
 
 func (a *app) autoInstallUpdates() {
@@ -682,7 +736,7 @@ func (a *app) routes() http.Handler {
 				return
 			}
 			a.seen.Store(true)
-			a.lastSeen.Store(time.Now().Unix())
+			a.lastSeen.Store(time.Now().UnixMilli())
 			h(w, r)
 		}
 	}
@@ -696,10 +750,18 @@ func (a *app) routes() http.Handler {
 		writeJSON(w, map[string]any{
 			"version": version, "build": build, "installDir": installDir(), "gamesDir": gamesRoot(),
 			"games": a.states(), "autoUpdate": a.autoUpdate(),
-			"checking": a.checking, "lastCheck": last, "checkError": a.checkErr,
+			"checking": a.checking, "lastCheck": last, "checkError": a.checkErr, "checkBusy": a.checkBusy,
 			"launcherUpdate": a.launcherUpdate(), "catalogSize": len(a.catJSON),
 		})
 	}))
+	mux.HandleFunc("/api/ping", guard(func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, "ok") }))
+	// sendBeacon from the page as its window closes (it can't send headers).
+	mux.HandleFunc("/api/bye", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("t") == a.token {
+			a.byeAt.Store(time.Now().UnixMilli())
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("/api/catalog", guard(func(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()
 		b := a.catJSON
@@ -750,6 +812,7 @@ func (a *app) routes() http.Handler {
 		if j := a.jobs[id]; j != nil && j.err != "" {
 			delete(a.jobs, id)
 		}
+		delete(a.launchErr, id)
 		if a.selfJob != nil && a.selfJob.err != "" && id == "launcher" {
 			a.selfJob = nil
 		}
@@ -776,24 +839,85 @@ func (a *app) routes() http.Handler {
 	return mux
 }
 
-func main() {
-	logf, _ := os.OpenFile(filepath.Join(os.TempDir(), "IroniteLauncher.log"), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
-	if logf != nil {
-		log.SetOutput(logf)
-	}
-	log.Printf("%s %s (%s) starting", productName, version, build)
+type instanceInfo struct {
+	PID     int    `json:"pid"`
+	URL     string `json:"url"`
+	Version string `json:"version"`
+}
 
+func instanceFile() string { return filepath.Join(cacheDir(), "instance.json") }
+
+// handOff deals with a launcher that is already running: it brings its window
+// to the front (or opens a new window for it) and returns true. If that
+// launcher has stopped answering, it is closed and handOff returns false so
+// this one takes over.
+func handOff() bool {
+	var in instanceInfo
+	b, err := os.ReadFile(instanceFile())
+	if err == nil {
+		err = json.Unmarshal(b, &in)
+	}
+	if err != nil || in.URL == "" {
+		log.Printf("another launcher holds the lock but left no details")
+		if !waitForLock() {
+			msgBox("Ironite Launcher is still closing. Please try again in a few seconds.", 0x40)
+			return true
+		}
+		return false
+	}
+	base, token, _ := strings.Cut(in.URL, "/?t=")
+	req, _ := http.NewRequest("GET", base+"/api/ping", nil)
+	req.Header.Set("X-Launcher-Token", token)
+	resp, err := (&http.Client{Timeout: 3 * time.Second}).Do(req)
+	if err == nil {
+		resp.Body.Close()
+	}
+	if err == nil && resp.StatusCode == http.StatusOK {
+		if focusWindow(productName + " " + in.Version) {
+			log.Printf("focused the open launcher window")
+			return true
+		}
+		// It's running in the background (a game is open or a download is
+		// running): give it a window again.
+		log.Printf("reopening the window of the running launcher (pid %d)", in.PID)
+		if _, ok := openWindow(in.URL); !ok {
+			openDefaultBrowser(in.URL)
+		}
+		return true
+	}
+	log.Printf("the running launcher (pid %d) isn't answering (%v); closing it", in.PID, err)
+	killLauncher(in.PID)
+	if !waitForLock() {
+		msgBox("Ironite Launcher is already running but not responding. Restart your PC if it doesn't open.", 0x30)
+		return true
+	}
+	return false
+}
+
+func main() {
 	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "/version") {
 		fmt.Println(version)
 		return
 	}
+	logPath := filepath.Join(os.TempDir(), "IroniteLauncher.log")
 	if !singleInstance() {
-		return
+		// Don't wipe the running launcher's log.
+		if f, _ := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); f != nil {
+			log.SetOutput(f)
+		}
+		log.Printf("%s %s: second start", productName, version)
+		if handOff() {
+			return
+		}
 	}
+	if f, _ := os.OpenFile(logPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644); f != nil {
+		log.SetOutput(f)
+	}
+	log.Printf("%s %s (%s) starting", productName, version, build)
 	migrateOldFolders()
 
 	a := &app{running: map[string]*exec.Cmd{}, started: map[string]time.Time{}, credited: map[string]time.Time{},
-		jobs: map[string]*installJob{}, checkNow: make(chan struct{}, 1)}
+		jobs: map[string]*installJob{}, launchErr: map[string]string{}, checkNow: make(chan struct{}, 1)}
 	a.loadSettings()
 	a.rel = loadReleaseCache()
 	cb, _ := webFS.ReadFile("web/games.json")
@@ -819,39 +943,57 @@ func main() {
 	go func() { _ = http.Serve(ln, a.routes()) }()
 	url := fmt.Sprintf("http://%s/?t=%s", ln.Addr().String(), a.token)
 	log.Printf("serving at %s", ln.Addr())
+	if b, err := json.Marshal(instanceInfo{PID: os.Getpid(), URL: url, Version: version}); err == nil {
+		_ = os.MkdirAll(cacheDir(), 0o755)
+		_ = os.WriteFile(instanceFile(), b, 0o600)
+	}
+	exit := func(why string) {
+		log.Printf("%s, exiting", why)
+		_ = os.Remove(instanceFile())
+		os.Exit(0)
+	}
 
 	if dev := os.Getenv("IRONITE_DEV"); dev != "" {
 		fmt.Println(url)
 		select {}
 	}
 
-	// Open the window. If we own the browser process, quit when it closes.
+	// Open the window, then stay running until it's closed. Games that are
+	// still open and downloads in progress keep the launcher running in the
+	// background (so play time and installs are recorded); it quits after.
 	started := time.Now()
+	windowGone := make(chan struct{})
 	if wait, ok := openWindow(url); ok {
-		wait()
-		if time.Since(started) > 5*time.Second {
-			// Keep running in the background until open games close and
-			// downloads finish, so play time and installs are recorded.
-			for a.gamesRunning() || a.busy() {
-				time.Sleep(2 * time.Second)
+		go func() {
+			wait()
+			if time.Since(started) > 5*time.Second { // the browser didn't just hand off
+				close(windowGone)
 			}
-			log.Printf("window closed, exiting")
-			return
-		}
+		}()
 	} else {
 		openDefaultBrowser(url)
 	}
-	// Fallback: browser handed off to an existing process. Stay alive while
-	// the page keeps polling (generous timeout for minimised windows).
 	for {
-		time.Sleep(5 * time.Second)
-		idle := time.Since(time.Unix(a.lastSeen.Load(), 0))
+		time.Sleep(time.Second)
 		if a.gamesRunning() || a.busy() {
 			continue
 		}
-		if (a.seen.Load() && idle > 3*time.Minute) || (!a.seen.Load() && time.Since(started) > 90*time.Second) {
-			log.Printf("no activity, exiting")
-			return
+		select {
+		case <-windowGone:
+			exit("window closed")
+		default:
+		}
+		// The page says goodbye when its window closes; a reload says hello
+		// again straight away, so wait a moment before trusting it.
+		if bye := a.byeAt.Load(); bye != 0 && a.lastSeen.Load() <= bye && time.Since(time.UnixMilli(bye)) > 3*time.Second {
+			exit("window closed (page)")
+		}
+		idle := time.Since(time.UnixMilli(a.lastSeen.Load()))
+		if a.seen.Load() && idle > 3*time.Minute {
+			exit("no activity")
+		}
+		if !a.seen.Load() && time.Since(started) > 90*time.Second {
+			exit("window never opened")
 		}
 	}
 }
