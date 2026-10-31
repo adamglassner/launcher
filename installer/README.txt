@@ -26,7 +26,8 @@ automatic updates off on the About page and update games yourself.
 COMING SOON
 - Card: Hearts, Spades, Cribbage, Gin Rummy
 - Word/Trivia
-- Simulation: Lifeboat Simulator, Prison Cell Simulator, Big Top Builder
+- Simulation: Lifeboat Simulator, Prison Cell Simulator, Big Top Builder,
+  Carnival Constructor
 - Board Games: Mahjong
 
 The launcher counts how many times you open each game and how long you play.

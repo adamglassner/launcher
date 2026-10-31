@@ -250,6 +250,24 @@
       <text x="200" y="86" text-anchor="middle" font-family="Bahnschrift,Segoe UI,sans-serif" font-weight="700" font-size="44" letter-spacing="4" fill="#ffd23f" stroke="#1b1446" stroke-width="5" paint-order="stroke">BIG TOP</text>
       <text x="200" y="120" text-anchor="middle" font-family="Bahnschrift,Segoe UI,sans-serif" font-weight="700" font-size="22" letter-spacing="10" fill="#f3e6c8" stroke="#1b1446" stroke-width="4" paint-order="stroke">BUILDER</text>`),
 
+    carnival: () => svg('0 0 400 500', `<defs><linearGradient id="ccs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b0e27"/><stop offset=".6" stop-color="#2a2160"/><stop offset="1" stop-color="#4a2a6a"/></linearGradient><radialGradient id="ccg" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#f4b942" stop-opacity=".4"/><stop offset="1" stop-color="#f4b942" stop-opacity="0"/></radialGradient></defs>
+      <rect width="400" height="500" fill="url(#ccs)"/>
+      ${[[30, 40], [150, 30], [370, 30], [340, 140], [20, 190], [260, 130]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2" fill="#fff4dc"/>`).join('')}
+      <circle cx="300" cy="260" r="130" fill="url(#ccg)"/>
+      <g transform="translate(300 260)"><path d="M-40 130 L0 0 L40 130" stroke="#e8d9b5" stroke-width="5" fill="none"/><circle r="86" fill="none" stroke="#f4b942" stroke-width="5"/><circle r="64" fill="none" stroke="#e23b3b" stroke-width="3"/>${Array.from({ length: 12 }, (_, i) => { const a = i * Math.PI / 6, x = Math.cos(a) * 86, y = Math.sin(a) * 86; return `<path d="M0 0 L${x} ${y}" stroke="#e8d9b5" stroke-width="2"/><rect x="${x - 8}" y="${y + 2}" width="16" height="13" rx="3" fill="${['#e23b3b', '#2bb3a3', '#f4b942'][i % 3]}"/>`; }).join('')}<circle r="10" fill="#e23b3b" stroke="#f4b942" stroke-width="3"/></g>
+      <g stroke="#f4b942" stroke-width="3" fill="none"><path d="M60 392 V160 M84 392 V160"/>${Array.from({ length: 10 }, (_, i) => `<path d="M60 ${160 + i * 23} L84 ${183 + i * 23}"/>`).join('')}<path d="M30 160 H230 M30 172 H230"/>${Array.from({ length: 8 }, (_, i) => `<path d="M${30 + i * 25} 172 L${55 + i * 25} 160"/>`).join('')}<path d="M72 160 L72 136 L30 160 M72 136 L230 160"/></g>
+      <rect x="22" y="174" width="26" height="22" fill="#5a5e68"/>
+      <path d="M200 172 V244" stroke="#e8d9b5" stroke-width="2"/>
+      <g transform="translate(200 262)"><path d="M-30 -14 H30 L22 16 Q0 26 -22 16Z" fill="#2bb3a3" stroke="#fff4dc" stroke-width="2"/><path d="M30 -6 Q44 -4 40 8 Q36 14 26 10" stroke="#fff4dc" stroke-width="4" fill="none"/><circle cy="-14" r="4" fill="#f4b942"/><path d="M-18 -18 L0 -30 L18 -18" stroke="#e8d9b5" stroke-width="2" fill="none"/></g>
+      <rect x="0" y="390" width="400" height="110" fill="#0d1030"/>
+      <path d="M150 390 H250 L310 500 H90Z" fill="#3a2f4f"/>
+      <g transform="translate(110 320)"><rect width="130" height="70" fill="#5b2b4a"/><rect y="40" width="130" height="30" fill="#3a1b30"/><rect x="-8" y="-24" width="146" height="26" fill="#fff4dc"/>${Array.from({ length: 4 }, (_, i) => `<rect x="${-8 + i * 37}" y="-24" width="18" height="26" fill="#e23b3b"/>`).join('')}${Array.from({ length: 8 }, (_, i) => `<circle cx="${-2 + i * 19}" cy="2" r="9" fill="${i % 2 ? '#fff4dc' : '#e23b3b'}"/>`).join('')}${Array.from({ length: 3 }, (_, i) => `<ellipse cx="${30 + i * 35}" cy="26" rx="9" ry="4" fill="none" stroke="#f4b942" stroke-width="3"/>`).join('')}</g>
+      <path d="M0 300 Q130 350 260 300" stroke="rgba(255,244,208,.6)" stroke-width="2" fill="none"/>
+      ${Array.from({ length: 9 }, (_, i) => { const t = i / 8; return `<circle cx="${t * 260}" cy="${300 + 2 * t * (1 - t) * 50}" r="4" fill="${['#f4b942', '#e23b3b', '#2bb3a3'][i % 3]}"/>`; }).join('')}
+      ${[[40, 440], [74, 456], [330, 440], [366, 452], [300, 470]].map(([x, y], i) => `<g transform="translate(${x} ${y})"><circle cy="-30" r="8" fill="#e9b28a"/><rect x="-8" y="-22" width="16" height="22" rx="4" fill="${['#2bb3a3', '#e23b3b', '#f4b942', '#c86ad8', '#5e9ef0'][i]}"/></g>`).join('')}
+      <text x="200" y="76" text-anchor="middle" font-family="Bahnschrift,Segoe UI,sans-serif" font-weight="700" font-size="44" letter-spacing="4" fill="#f4b942" stroke="#0b0e27" stroke-width="5" paint-order="stroke">CARNIVAL</text>
+      <text x="200" y="108" text-anchor="middle" font-family="Bahnschrift,Segoe UI,sans-serif" font-weight="700" font-size="20" letter-spacing="7" fill="#fff4dc" stroke="#0b0e27" stroke-width="4" paint-order="stroke">CONSTRUCTOR</text>`),
+
     appalachian: () => svg('0 0 400 500', `<defs><linearGradient id="ats" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6c98a"/><stop offset=".5" stop-color="#e8a06a"/><stop offset="1" stop-color="#b8775a"/></linearGradient></defs>
       <rect width="400" height="500" fill="url(#ats)"/>
       <path d="M0 250 Q60 190 120 220 T240 200 T400 215 V500 H0Z" fill="#7a6a8a" opacity=".7"/>
