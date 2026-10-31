@@ -288,6 +288,25 @@
       <path d="M200 285 V350" stroke="#7ef9ff" stroke-width="4" stroke-dasharray="12 10"/>
       <g transform="translate(200 400)"><path d="M0 -42 L14 -6 L36 10 L36 22 L10 16 L6 28 H-6 L-10 16 L-36 22 L-36 10 L-14 -6Z" fill="#e9eef7" stroke="#7a8aa8" stroke-width="2"/><path d="M0 -30 L6 -10 H-6Z" fill="#5ec8f0"/><path d="M-6 28 L0 48 L6 28Z" fill="#ffb347"/></g>
       <text x="200" y="478" text-anchor="middle" font-family="Bahnschrift,Segoe UI,sans-serif" font-weight="700" font-size="34" letter-spacing="6" fill="#fff2d6">SOLAR SIEGE</text>`),
+    keyhole: () => svg('0 0 400 500', `<defs><linearGradient id="khb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0c1517"/><stop offset=".55" stop-color="#16262a"/><stop offset="1" stop-color="#0a1012"/></linearGradient><linearGradient id="khr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6dc8e"/><stop offset=".45" stop-color="#c9922e"/><stop offset="1" stop-color="#6e4a14"/></linearGradient><radialGradient id="khp" cx=".42" cy=".38" r=".75"><stop offset="0" stop-color="#3b4a4c"/><stop offset="1" stop-color="#162124"/></radialGradient><radialGradient id="khg" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffe6a3" stop-opacity=".95"/><stop offset=".4" stop-color="#f4b942" stop-opacity=".45"/><stop offset="1" stop-color="#f4b942" stop-opacity="0"/></radialGradient></defs>
+      <rect width="400" height="500" fill="url(#khb)"/>
+      <g stroke="#ffffff" stroke-opacity=".05" stroke-width="2">${[130, 400].map(y => `<path d="M0 ${y} H400"/>`).join('')}<path d="M40 0 V500 M360 0 V500"/></g>
+      ${[[40, 130], [360, 130], [40, 400], [360, 400]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4" fill="#2c3b3e" stroke="#4d5f62"/>`).join('')}
+      <g transform="translate(200 262)">
+        <circle r="138" fill="rgba(0,0,0,.45)" cy="6"/>
+        <circle r="134" fill="url(#khr)"/>
+        <circle r="118" fill="#2a1e0c" opacity=".55"/>
+        <circle r="114" fill="url(#khp)" stroke="#8a6420" stroke-width="3"/>
+        ${Array.from({ length: 60 }, (_, i) => { const a = i * Math.PI / 30, r1 = i % 5 ? 124 : 119; return `<path d="M${Math.cos(a) * r1} ${Math.sin(a) * r1} L${Math.cos(a) * 130} ${Math.sin(a) * 130}" stroke="#5a3d10" stroke-width="${i % 5 ? 1.5 : 3}"/>`; }).join('')}
+        ${Array.from({ length: 12 }, (_, i) => { const a = i * Math.PI / 6 + Math.PI / 12; return `<circle cx="${Math.cos(a) * 98}" cy="${Math.sin(a) * 98}" r="5" fill="#c9922e" stroke="#5a3d10" stroke-width="1.5"/><circle cx="${Math.cos(a) * 98 - 1.5}" cy="${Math.sin(a) * 98 - 1.5}" r="1.6" fill="#fbe7b0"/>`; }).join('')}
+        <circle r="66" fill="none" stroke="#c9922e" stroke-width="4" opacity=".75"/>
+        <circle r="120" fill="url(#khg)" opacity=".55"/>
+        <g transform="translate(0 -8)"><circle cy="-10" r="24" fill="#120a02"/><path d="M-14 4 L14 4 L24 56 L-24 56Z" fill="#120a02"/><circle cy="-10" r="17" fill="#ffd98a"/><path d="M-8 2 L8 2 L15 48 L-15 48Z" fill="#ffd98a"/><circle cy="-14" r="7" fill="#fff6dc" opacity=".9"/></g>
+      </g>
+      ${[...'UNLOCK'].map((ch, i) => { const st = ['c', 'c', 'w', 'c', 's', 'c'][i], fill = st === 'c' ? 'url(#khr)' : st === 'w' ? '#b8653a' : '#33403f', ink = st === 's' ? '#8fa0a0' : '#1a1206', x = 41 + i * 54; return `<g transform="translate(${x} 414)"><rect width="48" height="54" rx="6" fill="rgba(0,0,0,.5)" y="4"/><rect width="48" height="54" rx="6" fill="${fill}" stroke="#0a1012" stroke-width="2"/><rect x="5" y="5" width="38" height="8" rx="4" fill="#fff" opacity=".18"/><text x="24" y="40" text-anchor="middle" font-family="Bahnschrift,Segoe UI,sans-serif" font-weight="700" font-size="30" fill="${ink}">${ch}</text></g>`; }).join('')}
+      <text x="200" y="74" text-anchor="middle" font-family="Bahnschrift,Segoe UI,sans-serif" font-weight="700" font-size="52" letter-spacing="7" fill="url(#khr)" stroke="#0a1012" stroke-width="5" paint-order="stroke">KEYHOLE</text>
+      <text x="200" y="104" text-anchor="middle" font-family="Bahnschrift,Segoe UI,sans-serif" font-weight="700" font-size="14" letter-spacing="6" fill="#e9dcc0">THE DAILY WORD VAULT</text>`),
+
     arcadecat: () => svg('0 0 800 500', `<defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b0820"/><stop offset="1" stop-color="#2a0f4a"/></linearGradient></defs>
       <rect width="800" height="500" fill="url(#ag)"/>
       ${Array.from({ length: 60 }, (_, i) => `<circle cx="${(i * 137) % 800}" cy="${(i * 71) % 330}" r="${1 + (i % 3) * .7}" fill="#fff" opacity="${.3 + (i % 4) * .15}"/>`).join('')}
