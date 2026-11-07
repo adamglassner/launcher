@@ -4,6 +4,14 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.5.0] - 2026-11-07
+
+### Added
+- A Friends page in the sidebar, marked Coming Soon: friends lists, seeing what friends are playing, and game invites are on the way.
+
+### Fixed
+- After updating itself, the launcher now opens again by itself. A small helper waits for the update to finish and then starts the new launcher, and the launcher reopens its window if it doesn't appear the first time.
+
 ## [2.4.1] - 2026-10-31
 
 ### Changed

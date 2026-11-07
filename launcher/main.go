@@ -900,6 +900,14 @@ func main() {
 		return
 	}
 	logPath := filepath.Join(os.TempDir(), "IroniteLauncher.log")
+	if len(os.Args) > 3 && os.Args[1] == "--after-update" {
+		// The restart helper (see startSelfUpdate).
+		if f, _ := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); f != nil {
+			log.SetOutput(f)
+		}
+		afterUpdate(os.Args[2], os.Args[3])
+		return
+	}
 	if !singleInstance() {
 		// Don't wipe the running launcher's log.
 		if f, _ := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); f != nil {
@@ -931,6 +939,7 @@ func main() {
 	a.mu.Unlock()
 	_ = os.RemoveAll(filepath.Join(cacheDir(), "Downloads")) // leftovers from an interrupted download
 	go a.updateLoop()
+	go func() { time.Sleep(15 * time.Second); _ = os.Remove(helperPath()) }() // left by an update
 
 	tb := make([]byte, 16)
 	_, _ = rand.Read(tb)
@@ -966,13 +975,29 @@ func main() {
 	if wait, ok := openWindow(url); ok {
 		go func() {
 			wait()
-			if time.Since(started) > 5*time.Second { // the browser didn't just hand off
+			// The window closed (and not just a hand-off to a browser that was
+			// already running), after the page had loaded.
+			if time.Since(started) > 5*time.Second && a.seen.Load() {
 				close(windowGone)
 			}
 		}()
 	} else {
 		openDefaultBrowser(url)
 	}
+	// Right after an update the old window's browser may still be closing and
+	// swallow the new window. If the page hasn't loaded, open the window again.
+	go func() {
+		for i := 0; i < 3; i++ {
+			time.Sleep(10 * time.Second)
+			if a.seen.Load() {
+				return
+			}
+			log.Printf("window hasn't opened yet; opening it again")
+			if _, ok := openWindow(url); !ok {
+				openDefaultBrowser(url)
+			}
+		}
+	}()
 	for {
 		time.Sleep(time.Second)
 		if a.gamesRunning() || a.busy() {

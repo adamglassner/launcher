@@ -389,7 +389,7 @@
   /* ---------- nav ---------- */
   function renderAll() {
     renderBanner(); renderCheck();
-    if (view === 'news') return;
+    if (view === 'news' || view === 'friends') return;
     if (view === 'about') return renderAbout();
     renderLibrary();
     if (modalId && !$('#modal').classList.contains('hidden')) details(modalId);
@@ -397,7 +397,8 @@
   function go(v) {
     view = v;
     document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
-    $('#vLibrary').classList.toggle('hidden', v === 'news' || v === 'about');
+    $('#vLibrary').classList.toggle('hidden', v === 'news' || v === 'about' || v === 'friends');
+    $('#vFriends').classList.toggle('hidden', v !== 'friends');
     $('#vNews').classList.toggle('hidden', v !== 'news');
     $('#vAbout').classList.toggle('hidden', v !== 'about');
     if (v === 'news') renderNews().catch(e => toast(e.message));

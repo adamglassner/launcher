@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 // Non-Windows stubs, used only for development and testing.
@@ -36,6 +37,8 @@ func runAndWait(file, args, dir string) (int, error) {
 	return -1, errors.New("setup programs only run on Windows")
 }
 func startSelfUpdate(setup string) error {
-	fmt.Println("would run", setup, "/S /relaunch")
+	fmt.Println("would run", setup, "/S and restart afterwards")
 	return nil
 }
+func helperPath() string              { return filepath.Join(os.TempDir(), "IroniteLauncherUpdate") }
+func afterUpdate(pidText, exe string) {}

@@ -4,9 +4,13 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -231,13 +235,81 @@ func runAndWait(file, args, dir string) (int, error) {
 
 // startSelfUpdate starts the new launcher setup silently; it closes this
 // launcher, installs the update and opens the launcher again.
+var pGetProcessId = kernel32.NewProc("GetProcessId")
+
+func helperPath() string { return filepath.Join(os.TempDir(), "IroniteLauncherUpdate.exe") }
+
+// startSelfUpdate starts the new launcher setup silently. Setup closes this
+// launcher and replaces it. A small helper (a copy of this program under
+// another name, so setup doesn't close it) waits for setup to finish and then
+// opens the new launcher as the signed-in user.
 func startSelfUpdate(setup string) error {
-	h, err := shellRun(setup, "/S /relaunch", filepath.Dir(setup))
+	exe, err := os.Executable()
+	helperOK := err == nil && copyFile(exe, helperPath()) == nil
+	args := "/S"
+	if !helperOK {
+		args = "/S /relaunch" // let setup open the launcher instead
+	}
+	h, err := shellRun(setup, args, filepath.Dir(setup))
 	if err != nil {
 		return err
 	}
-	if h != 0 {
-		pCloseHandle.Call(h)
+	if h == 0 {
+		return nil
 	}
+	defer pCloseHandle.Call(h)
+	if !helperOK {
+		return nil
+	}
+	pid, _, _ := pGetProcessId.Call(h)
+	cmd := exec.Command(helperPath(), "--after-update", strconv.Itoa(int(pid)), exe)
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x00000008 | 0x00000200} // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("couldn't start the restart helper (%v)", err)
+	}
+	_ = cmd.Process.Release()
 	return nil
+}
+
+// afterUpdate runs in the helper: wait for setup to finish, then open the
+// (new) launcher.
+func afterUpdate(pidText, exe string) {
+	pid, _ := strconv.Atoi(pidText)
+	waited := false
+	if pid > 0 {
+		if h, _, _ := pOpenProcess.Call(0x00100000, 0, uintptr(pid)); h != 0 { // SYNCHRONIZE
+			pWaitForSingleObj.Call(h, 15*60*1000)
+			pCloseHandle.Call(h)
+			waited = true
+		}
+	}
+	if !waited {
+		time.Sleep(45 * time.Second)
+	}
+	time.Sleep(1500 * time.Millisecond) // let setup's files settle
+	cmd := exec.Command(exe)
+	cmd.Dir = filepath.Dir(exe)
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x00000008 | 0x00000200}
+	if err := cmd.Start(); err != nil {
+		log.Printf("restart after update: %v", err)
+		return
+	}
+	log.Printf("restarted %s after update", exe)
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
 }

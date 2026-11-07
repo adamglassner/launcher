@@ -107,6 +107,10 @@ Function RunLauncher
   ; Start the launcher as the signed-in user, not as administrator.
   StdUtils::ExecShellAsUser /NOUNLOAD "$INSTDIR\${EXE}" "open" ""
   Pop $0
+  ${If} $0 != "ok"
+  ${AndIf} $0 != "fallback"
+    Exec '"$INSTDIR\${EXE}"' ; couldn't start it as the user: start it anyway
+  ${EndIf}
 FunctionEnd
 
 Section "Launcher" SecMain
