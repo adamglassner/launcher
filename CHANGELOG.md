@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.7.0] - 2026-11-07
+
+### Added
+- Mahjong: Jade Moon Garden is now available to install from Board Games (no longer Coming Soon). It's Mahjong solitaire in a moonlit Chinese garden with twelve puzzles from Easy to Hard. It downloads and updates from its own GitHub repository like the other games, and it has new cover art and a spot in the featured carousel.
+
 ## [2.6.0] - 2026-11-07
 
 ### Added

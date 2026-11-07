@@ -10,6 +10,7 @@
     { id: 'rewindlife', kicker: 'FREE DEMO · SIMULATION', title: 'REWIND LIFE', small: 'MAPLE GROVE, 1986', art: 'rewindlifeHero' },
     { id: 'euchre', kicker: 'FEATURED · CARD GAMES', title: 'EUCHRE', small: 'A KITCHEN-TABLE CLASSIC', art: 'euchreHero' },
     { id: 'oldmaid', kicker: 'FEATURED · CARD GAMES', title: 'OLD MAID', small: 'A VICTORIAN PARLOR GAME', art: 'oldmaidHero' },
+    { id: 'mahjong', kicker: 'NEW · BOARD GAMES', title: 'MAHJONG', small: 'JADE MOON GARDEN', art: 'mahjongHero' },
     { id: 'solarsiege', kicker: 'FEATURED · ARCADE', title: 'SOLAR SIEGE', small: 'DEFEND THE SOLAR SYSTEM', art: 'solarsiegeHero' }
   ];
   let slide = 0, slideTimer = null, heroHover = false;

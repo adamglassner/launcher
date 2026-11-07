@@ -111,17 +111,8 @@
       <rect x="40" y="112" width="320" height="76" rx="10" fill="rgba(20,10,8,.8)"/>
       <text x="200" y="170" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="52" letter-spacing="4" fill="#f2e8d6">CHECKERS</text>`),
 
-    mahjong: () => svg('0 0 400 500', `<defs><radialGradient id="mjb" cx=".5" cy=".4" r=".8"><stop offset="0" stop-color="#2f7a5a"/><stop offset="1" stop-color="#0f3324"/></radialGradient></defs>
-      <rect width="400" height="500" fill="url(#mjb)"/>
-      ${(() => { const tiles = [[120, 290, 'dots3'], [184, 282, 'chun'], [248, 290, 'bam2'], [152, 370, 'dots5'], [216, 370, 'bam3'], [280, 376, 'dots1'], [88, 376, 'wind']]; return tiles.map(([x, y, k]) => {
-        let face = '';
-        if (k.startsWith('dots')) { const n = +k[4]; const pos = { 1: [[0, 0]], 3: [[-12, -18], [0, 0], [12, 18]], 5: [[-12, -18], [12, -18], [0, 0], [-12, 18], [12, 18]] }[n]; face = pos.map(([dx, dy]) => `<circle cx="${dx}" cy="${dy}" r="${n === 1 ? 16 : 8}" fill="none" stroke="#1f6b9a" stroke-width="4"/><circle cx="${dx}" cy="${dy}" r="${n === 1 ? 7 : 3}" fill="#c8312b"/>`).join(''); }
-        else if (k.startsWith('bam')) { const n = +k[3]; face = Array.from({ length: n }, (_, i) => `<rect x="${(i - (n - 1) / 2) * 16 - 4}" y="-26" width="8" height="52" rx="4" fill="#2f7a4a"/><path d="M${(i - (n - 1) / 2) * 16 - 4} -2 h8" stroke="#f6efe0" stroke-width="2"/>`).join(''); }
-        else if (k === 'chun') face = '<rect x="-16" y="-24" width="32" height="48" fill="none" stroke="#c8312b" stroke-width="5"/><path d="M0 -32 V32 M-16 0 H16" stroke="#c8312b" stroke-width="5"/>';
-        else face = '<path d="M-14 -20 L14 -20 M0 -20 V24 M-16 6 L0 -6 L16 6" stroke="#1d1a1a" stroke-width="5" fill="none"/>';
-        return `<g transform="translate(${x} ${y})"><rect x="-26" y="-36" width="60" height="80" rx="8" fill="#c9a24c"/><rect x="-30" y="-40" width="60" height="80" rx="8" fill="#f6efe0" stroke="#a89878" stroke-width="2"/><g>${face}</g></g>`; }).join(''); })()}
-      <text x="200" y="172" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="56" letter-spacing="5" fill="#f6efe0">MAHJONG</text>
-      <path d="M110 192 H290" stroke="#e8c35a" stroke-width="2"/>`),
+    mahjong: () => '<img src="covers/mahjong.jpg" alt="Mahjong">',
+    mahjongHero: () => '<img src="covers/mahjong-hero.jpg" alt="Mahjong">',
     maplelane: () => '<img src="covers/maplelane.jpg" alt="Maple Lane Finds">',
     maplelaneHero: () => '<img src="covers/maplelane-hero.jpg" alt="Maple Lane Finds">',
     snugfit: () => '<img src="covers/snugfit.jpg" alt="Snugfit">',
