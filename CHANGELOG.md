@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.6.0] - 2026-11-07
+
+### Added
+- An Achievements page in the sidebar, marked Coming Soon.
+
 ## [2.5.0] - 2026-11-07
 
 ### Added
