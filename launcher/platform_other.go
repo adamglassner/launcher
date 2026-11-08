@@ -42,3 +42,9 @@ func startSelfUpdate(setup string) error {
 }
 func helperPath() string              { return filepath.Join(os.TempDir(), "IroniteLauncherUpdate") }
 func afterUpdate(pidText, exe string) {}
+
+// Picking a program with a file dialog works on Windows only.
+func browseForGame(string) (string, error) {
+	return "", errors.New("browsing for a program works on Windows; type its full path instead")
+}
+func exeIconPNG(string) ([]byte, error) { return nil, errors.New("icons are read on Windows only") }

@@ -3,17 +3,22 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"image"
+	"image/png"
 	"io"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
+	"unicode/utf16"
 	"unsafe"
 )
 
@@ -312,4 +317,194 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return out.Close()
+}
+
+/* ---------- the player's own games: file dialog and program icons ---------- */
+
+var (
+	comdlg32           = syscall.NewLazyDLL("comdlg32.dll")
+	pGetOpenFileName   = comdlg32.NewProc("GetOpenFileNameW")
+	pCommDlgExtError   = comdlg32.NewProc("CommDlgExtendedError")
+	ole32              = syscall.NewLazyDLL("ole32.dll")
+	pCoInitializeEx    = ole32.NewProc("CoInitializeEx")
+	pCoUninitialize    = ole32.NewProc("CoUninitialize")
+	pPrivateExtractIco = user32.NewProc("PrivateExtractIconsW")
+	pDestroyIcon       = user32.NewProc("DestroyIcon")
+	pGetIconInfo       = user32.NewProc("GetIconInfo")
+	gdi32              = syscall.NewLazyDLL("gdi32.dll")
+	pGetObject         = gdi32.NewProc("GetObjectW")
+	pGetDIBits         = gdi32.NewProc("GetDIBits")
+	pDeleteObject      = gdi32.NewProc("DeleteObject")
+	pCreateCompatDC    = gdi32.NewProc("CreateCompatibleDC")
+	pDeleteDC          = gdi32.NewProc("DeleteDC")
+)
+
+type openFileNameW struct {
+	lStructSize       uint32
+	hwndOwner         uintptr
+	hInstance         uintptr
+	lpstrFilter       *uint16
+	lpstrCustomFilter *uint16
+	nMaxCustFilter    uint32
+	nFilterIndex      uint32
+	lpstrFile         *uint16
+	nMaxFile          uint32
+	lpstrFileTitle    *uint16
+	nMaxFileTitle     uint32
+	lpstrInitialDir   *uint16
+	lpstrTitle        *uint16
+	Flags             uint32
+	nFileOffset       uint16
+	nFileExtension    uint16
+	lpstrDefExt       *uint16
+	lCustData         uintptr
+	lpfnHook          uintptr
+	lpTemplateName    *uint16
+	pvReserved        uintptr
+	dwReserved        uint32
+	FlagsEx           uint32
+}
+
+// browseForGame shows the Windows "Open" dialog for picking a game's program.
+// It returns "" if the player cancels.
+func browseForGame(ownerTitle string) (string, error) {
+	type result struct {
+		path string
+		err  error
+	}
+	done := make(chan result, 1)
+	go func() {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+		pCoInitializeEx.Call(0, 0x2) // COINIT_APARTMENTTHREADED
+		defer pCoUninitialize.Call()
+
+		filter := utf16.Encode([]rune("Games (*.exe)\x00*.exe\x00\x00"))
+		buf := make([]uint16, 4096)
+		initial := u16(os.Getenv("ProgramFiles"))
+		owner, _, _ := pFindWindow.Call(0, uintptr(unsafe.Pointer(u16(ownerTitle))))
+		ofn := openFileNameW{
+			hwndOwner:       owner,
+			lpstrFilter:     &filter[0],
+			nFilterIndex:    1,
+			lpstrFile:       &buf[0],
+			nMaxFile:        uint32(len(buf)),
+			lpstrInitialDir: initial,
+			lpstrTitle:      u16("Choose a game to add to Ironite Launcher"),
+			// FILEMUSTEXIST | PATHMUSTEXIST | NOCHANGEDIR | EXPLORER | DONTADDTORECENT
+			Flags: 0x1000 | 0x800 | 0x8 | 0x80000 | 0x2000000,
+		}
+		ofn.lStructSize = uint32(unsafe.Sizeof(ofn))
+		r, _, _ := pGetOpenFileName.Call(uintptr(unsafe.Pointer(&ofn)))
+		if r == 0 {
+			if code, _, _ := pCommDlgExtError.Call(); code != 0 {
+				done <- result{"", fmt.Errorf("the file dialog failed (code %#x)", code)}
+				return
+			}
+			done <- result{"", nil} // cancelled
+			return
+		}
+		done <- result{syscall.UTF16ToString(buf), nil}
+	}()
+	res := <-done
+	return res.path, res.err
+}
+
+type iconInfo struct {
+	fIcon    int32
+	xHotspot uint32
+	yHotspot uint32
+	hbmMask  uintptr
+	hbmColor uintptr
+}
+
+type bitmapW struct {
+	bmType       int32
+	bmWidth      int32
+	bmHeight     int32
+	bmWidthBytes int32
+	bmPlanes     uint16
+	bmBitsPixel  uint16
+	bmBits       uintptr
+}
+
+type bitmapInfoHeader struct {
+	biSize          uint32
+	biWidth         int32
+	biHeight        int32
+	biPlanes        uint16
+	biBitCount      uint16
+	biCompression   uint32
+	biSizeImage     uint32
+	biXPelsPerMeter int32
+	biYPelsPerMeter int32
+	biClrUsed       uint32
+	biClrImportant  uint32
+}
+
+// exeIconPNG reads a program's icon (as large as it has, up to 256 px) as a PNG.
+func exeIconPNG(path string) ([]byte, error) {
+	var hicon uintptr
+	var id uint32
+	n, _, _ := pPrivateExtractIco.Call(uintptr(unsafe.Pointer(u16(path))), 0, 256, 256,
+		uintptr(unsafe.Pointer(&hicon)), uintptr(unsafe.Pointer(&id)), 1, 0)
+	if n == 0 || n == 0xFFFFFFFF || hicon == 0 {
+		return nil, errors.New("the program has no icon")
+	}
+	defer pDestroyIcon.Call(hicon)
+	var ii iconInfo
+	if r, _, _ := pGetIconInfo.Call(hicon, uintptr(unsafe.Pointer(&ii))); r == 0 {
+		return nil, errors.New("couldn't read the icon")
+	}
+	defer pDeleteObject.Call(ii.hbmMask)
+	if ii.hbmColor == 0 {
+		return nil, errors.New("the icon is monochrome")
+	}
+	defer pDeleteObject.Call(ii.hbmColor)
+	var bm bitmapW
+	pGetObject.Call(ii.hbmColor, unsafe.Sizeof(bm), uintptr(unsafe.Pointer(&bm)))
+	w, h := int(bm.bmWidth), int(bm.bmHeight)
+	if w <= 0 || h <= 0 || w > 1024 || h > 1024 {
+		return nil, errors.New("unexpected icon size")
+	}
+	dc, _, _ := pCreateCompatDC.Call(0)
+	defer pDeleteDC.Call(dc)
+	read := func(hbm uintptr) []byte {
+		bih := bitmapInfoHeader{biWidth: int32(w), biHeight: -int32(h), biPlanes: 1, biBitCount: 32}
+		bih.biSize = uint32(unsafe.Sizeof(bih))
+		px := make([]byte, w*h*4)
+		// BITMAPINFO = header + room for a color table (unused at 32 bpp).
+		info := make([]byte, int(bih.biSize)+16)
+		*(*bitmapInfoHeader)(unsafe.Pointer(&info[0])) = bih
+		pGetDIBits.Call(dc, hbm, 0, uintptr(h), uintptr(unsafe.Pointer(&px[0])), uintptr(unsafe.Pointer(&info[0])), 0)
+		return px
+	}
+	color := read(ii.hbmColor)
+	hasAlpha := false
+	for i := 3; i < len(color); i += 4 {
+		if color[i] != 0 {
+			hasAlpha = true
+			break
+		}
+	}
+	var mask []byte
+	if !hasAlpha {
+		mask = read(ii.hbmMask) // old-style icon: transparency comes from the mask
+	}
+	img := image.NewNRGBA(image.Rect(0, 0, w, h))
+	for i := 0; i < w*h; i++ {
+		b, g, r, a := color[i*4], color[i*4+1], color[i*4+2], color[i*4+3]
+		if !hasAlpha {
+			a = 255
+			if mask != nil && mask[i*4] != 0 {
+				a = 0
+			}
+		}
+		img.Pix[i*4], img.Pix[i*4+1], img.Pix[i*4+2], img.Pix[i*4+3] = r, g, b, a
+	}
+	var out bytes.Buffer
+	if err := png.Encode(&out, img); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
 }

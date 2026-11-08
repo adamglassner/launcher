@@ -75,6 +75,7 @@ type settings struct {
 	Stats      map[string]*gameStats     `json:"stats"`
 	Installs   map[string]*installRecord `json:"installs,omitempty"`
 	AutoUpdate *bool                     `json:"autoUpdate,omitempty"`
+	Custom     []*customGame             `json:"custom,omitempty"` // the player's own games
 }
 
 type gameState struct {
@@ -104,8 +105,11 @@ type gameState struct {
 
 type app struct {
 	mu        sync.Mutex
-	cat       catalog
+	cat       catalog // the Ironite catalog plus the player's own games
 	catJSON   []byte
+	catVer    int     // bumps whenever the catalog changes
+	baseCat   catalog // the Ironite catalog alone
+	baseJSON  []byte
 	set       settings
 	rel       *releaseCache
 	running   map[string]*exec.Cmd
@@ -199,7 +203,8 @@ func (a *app) setCatalog(b []byte) error {
 	if err := json.Unmarshal(b, &c); err != nil {
 		return err
 	}
-	a.cat, a.catJSON = c, b
+	a.baseCat, a.baseJSON = c, b
+	defer a.mergeCustom()
 	// Games installed by launcher 1.x (unpacked from inside the launcher) keep
 	// working and are updated from GitHub like everything else.
 	for _, g := range c.Games {
@@ -228,7 +233,15 @@ func (a *app) states() map[string]gameState { // caller holds a.mu
 	out := map[string]gameState{}
 	for _, g := range a.cat.Games {
 		st := gameState{Running: a.running[g.ID] != nil}
-		if g.isWeb() {
+		if g.isLocal() {
+			st.Available, st.Installed = true, true
+			if cg := a.customByID(g.ID); cg != nil {
+				st.InstalledAt = cg.AddedAt
+			}
+			if _, err := os.Stat(g.Exe); err != nil {
+				st.LaunchError = "The game's program wasn't found at " + g.Exe + ". If it moved, remove it from the launcher and add it again."
+			}
+		} else if g.isWeb() {
 			st.Available = g.URL != ""
 		} else if g.Repo != "" {
 			if rec := a.set.Installs[g.ID]; rec != nil {
@@ -266,7 +279,9 @@ func (a *app) states() map[string]gameState { // caller holds a.mu
 				}
 			}
 		}
-		st.LaunchError = a.launchErr[g.ID]
+		if e := a.launchErr[g.ID]; e != "" {
+			st.LaunchError = e
+		}
 		if s := a.set.Stats[g.ID]; s != nil {
 			st.PlayCount, st.LastPlayed, st.PlaySeconds = s.PlayCount, s.LastPlayed, s.PlaySeconds+live
 		}
@@ -294,6 +309,9 @@ func (a *app) install(id string) error {
 	}
 	if g.isWeb() {
 		return errors.New("web games play online and don't need installing")
+	}
+	if g.isLocal() {
+		return errors.New("that game is already on this PC")
 	}
 	r := a.rel.get(g.Repo)
 	if g.Repo == "" || r == nil || r.gameAsset() == nil {
@@ -361,6 +379,10 @@ func (a *app) uninstall(id string) error {
 		a.mu.Unlock()
 		return errors.New("web games play online and have nothing to uninstall")
 	}
+	if g.isLocal() {
+		a.mu.Unlock()
+		return a.removeCustom(id) // takes it out of the launcher; its files stay
+	}
 	if a.running[id] != nil {
 		a.mu.Unlock()
 		return errors.New("close the game before uninstalling it")
@@ -414,6 +436,11 @@ func (a *app) launch(id string) error {
 			return err
 		}
 		cmd = c
+	} else if g.isLocal() {
+		if _, err := os.Stat(g.Exe); err != nil {
+			return errors.New("the game's program wasn't found at " + g.Exe)
+		}
+		cmd = gameCommand(g.Exe, filepath.Dir(g.Exe))
 	} else {
 		if rec == nil {
 			return errors.New("install the game first")
@@ -555,7 +582,7 @@ func (a *app) checkAll() {
 	a.rel.mu.Unlock()
 	if len(remote) > 0 {
 		a.mu.Lock()
-		if string(remote) != string(a.catJSON) {
+		if string(remote) != string(a.baseJSON) {
 			if err := a.setCatalog(remote); err != nil {
 				log.Printf("published catalog: %v", err)
 			} else {
@@ -751,7 +778,7 @@ func (a *app) routes() http.Handler {
 			"version": version, "build": build, "installDir": installDir(), "gamesDir": gamesRoot(),
 			"games": a.states(), "autoUpdate": a.autoUpdate(),
 			"checking": a.checking, "lastCheck": last, "checkError": a.checkErr, "checkBusy": a.checkBusy,
-			"launcherUpdate": a.launcherUpdate(), "catalogSize": len(a.catJSON),
+			"launcherUpdate": a.launcherUpdate(), "catalogSize": a.catVer,
 		})
 	}))
 	mux.HandleFunc("/api/ping", guard(func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, "ok") }))
@@ -801,6 +828,7 @@ func (a *app) routes() http.Handler {
 			writeJSON(w, map[string]any{"games": a.states(), "launcherUpdate": a.launcherUpdate(), "autoUpdate": a.autoUpdate()})
 		})
 	}
+	a.customRoutes(mux, guard, writeJSON)
 	mux.HandleFunc("/api/launch", action(a.launch))
 	mux.HandleFunc("/api/install", action(a.install))
 	mux.HandleFunc("/api/uninstall", action(a.uninstall))

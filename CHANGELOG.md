@@ -4,6 +4,12 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.9.0] - 2026-11-08
+
+### Added
+- Add your own games: a new Non-Ironite Games category in the sidebar with an Add a game button. Pick any game's program on your PC (Browse opens the Windows file picker) and give it a name. It shows up with its own icon in Non-Ironite Games and Installed, and the launcher counts how often you open it and how long you play, just like the Ironite games.
+- Your own games can be renamed, or removed from the launcher. Removing one never touches the game's files.
+
 ## [2.8.0] - 2026-11-07
 
 ### Added

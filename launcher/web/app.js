@@ -27,7 +27,16 @@
     return ct.includes('json') ? r.json() : r.text();
   }
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const cover = id => (Covers[id] || Covers.hiddenobj)();
+  const isLocal = g => g && g.type === 'local';
+  // The player's own games: a color from the name, the program's icon, and initials as a fallback.
+  function customCover(g) {
+    let h = 0; for (const ch of g.title) h = (h * 31 + ch.charCodeAt(0)) % 360;
+    const initials = esc(g.title.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?');
+    return `<div class="ccover" style="--h:${h}"><span class="ci">${initials}</span>` +
+      `<img src="/api/custom/icon?id=${encodeURIComponent(g.id)}&t=${encodeURIComponent(token)}" alt="" onload="this.previousElementSibling.style.display='none'" onerror="this.remove()">` +
+      `<span class="cname">${esc(g.title)}</span></div>`;
+  }
+  const cover = id => { const g = game(id); return isLocal(g) ? customCover(g) : (Covers[id] || Covers.hiddenobj)(); };
   const game = id => catalog.games.find(g => g.id === id);
   const st = id => state.games[id] || {};
   const isPlaceholder = g => g.subtitle === 'New category';
@@ -96,6 +105,11 @@
   // What the main button should do and say for a game.
   function primary(id) {
     const s = st(id), g = game(id), d = demo(g) ? ' DEMO' : '';
+    if (isLocal(g)) {
+      if (busy[id]) return { act: null, cls: 'play', html: 'OPENING…' };
+      if (s.running) return { act: null, cls: 'play', html: 'PLAYING…' };
+      return { act: 'play', cls: 'play', html: '▶&nbsp; PLAY' };
+    }
     if (isWeb(g)) {
       if (busy[id]) return { act: null, cls: 'play', html: 'OPENING…' };
       if (s.running) return { act: null, cls: 'play', html: 'PLAYING…' };
@@ -116,6 +130,7 @@
     if (!avail(g)) return '<span class="pill soon">COMING SOON</span>';
     const s = st(g.id);
     if (isWeb(g)) return s.running ? '<span class="pill ready">PLAYING</span>' : '<span class="pill web">🌐 WEB GAME</span>';
+    if (isLocal(g)) return s.running ? '<span class="pill ready">PLAYING</span>' : s.launchError ? '<span class="pill miss">NOT FOUND</span>' : '<span class="pill mine">YOUR GAME</span>';
     if (s.error) return '<span class="pill miss">INSTALL FAILED</span>';
     if (s.installing) return `<span class="pill inst">${s.phase === 'Downloading' ? (s.updating ? 'UPDATING' : 'DOWNLOADING') : 'INSTALLING'} ${s.progress || 0}%</span>`;
     if (s.running) return '<span class="pill ready">PLAYING</span>';
@@ -219,7 +234,7 @@
   function tile(g, where) {
     const soon = !avail(g), s = st(g.id), wide = isPlaceholder(g), p = soon ? null : primary(g.id);
     let sub = soon ? 'Coming soon · ' + esc(g.players) : esc(g.subtitle) + ' · ' + esc(g.players);
-    if (where === 'installed') sub = (isWeb(g) ? 'Web game · ' : s.installedVersion ? `v${esc(s.installedVersion)} · ` : '') + `Played ${dur(played(s))}`;
+    if (where === 'installed') sub = (isWeb(g) ? 'Web game · ' : isLocal(g) ? 'Your game · ' : s.installedVersion ? `v${esc(s.installedVersion)} · ` : '') + `Played ${dur(played(s))}`;
     const icon = !p || !p.act ? '' : p.act === 'play' ? '▶' : s.update ? '⟳' : '⬇';
     const chip = icon ? `<span class="playchip ${p.act === 'play' ? 'go' : s.update ? 'up' : ''}" data-act="${p.act}" title="${p.act === 'play' ? 'Play' : s.update ? 'Update to ' + esc(s.latestVersion) : 'Install'}">${icon}</span>` : '';
     return `<button class="tile ${soon ? 'soon' : ''} ${wide ? 'wide' : ''} ${demo(g) ? 'isdemo' : ''}" data-id="${g.id}">
@@ -233,10 +248,12 @@
   const installedGames = () => catalog.games.filter(g => isWeb(g) ? avail(g) : (st(g.id).installed || st(g.id).installing));
   const updatable = () => installedGames().filter(g => !isWeb(g) && st(g.id).update && !st(g.id).installing && !st(g.id).running);
 
-  function section(title, count, blurb, list, where, extra = '') {
+  function section(title, count, blurb, list, where, extra = '', tail = '') {
     return `<div class="cat"><div class="cat-h"><h2>${esc(title)}</h2><span class="count">${count}</span>${extra}</div>
-      ${blurb ? `<p class="cat-b">${esc(blurb)}</p>` : ''}<div class="grid">${list.map(g => tile(g, where)).join('')}</div></div>`;
+      ${blurb ? `<p class="cat-b">${esc(blurb)}</p>` : ''}<div class="grid">${list.map(g => tile(g, where)).join('')}${tail}</div></div>`;
   }
+  const addTile = () => `<button class="tile addtile" data-addgame><span class="cv"><span class="plus">+</span></span>
+      <span class="tt"><div class="t1">Add a game</div><div class="t2">Any game on this PC</div></span></button>`;
   function renderCats() {
     $('#hero').classList.toggle('hidden', view !== 'all' || !featured().length);
     let html = '';
@@ -254,16 +271,21 @@
         const list = catalog.games.filter(g => g.category === c.id);
         list.sort((a, b) => (avail(b) ? 1 : 0) - (avail(a) ? 1 : 0));
         const ready = list.filter(avail).length;
+        if (c.id === 'custom') {
+          const n = list.length;
+          return section(c.name, n ? `${n} ${n === 1 ? 'game' : 'games'}` : 'Add your first game', c.blurb, list, 'cat', '', addTile());
+        }
         const count = ready === 0 ? 'Coming soon' : `${ready} available` + (list.length > ready ? ` · ${list.length - ready} coming soon` : '');
         return section(c.name, count, c.blurb, list, 'cat');
       }).join('');
     }
     $('#cats').innerHTML = html;
-    document.querySelectorAll('.tile').forEach(t => t.onclick = e => {
+    document.querySelectorAll('.tile[data-id]').forEach(t => t.onclick = e => {
       const chip = e.target.closest('.playchip');
       if (chip && chip.dataset.act) { e.stopPropagation(); act(t.dataset.id, chip.dataset.act); return; }
       details(t.dataset.id);
     });
+    document.querySelectorAll('[data-addgame]').forEach(b => b.onclick = addGameDialog);
     document.querySelectorAll('[data-upall]').forEach(b => b.onclick = () => updatable().forEach(g => act(g.id, 'install')));
     const n = installedGames().filter(g => isWeb(g) || st(g.id).installed).length;
     $('#instCount').textContent = n; $('#instCount').title = ups.length ? `${ups.length} update${ups.length > 1 ? 's' : ''} available` : '';
@@ -288,22 +310,25 @@
       $('#mActions').innerHTML = '<button class="btn ghost small" data-close>Got it</button>';
     } else {
       const s = st(id), p = primary(id);
-      const v = isWeb(g) ? 'Web game' : s.installed
+      const v = isWeb(g) ? 'Web game' : isLocal(g) ? 'Not an Ironite game' : s.installed
         ? `v${esc(s.installedVersion)} installed` + (s.update ? ` · v${esc(s.latestVersion)} available` : '')
         : `v${esc(s.latestVersion)}` + (s.size ? ` · ${size(s.size)} download` : '');
       $('#mSub').innerHTML = `${esc(g.subtitle)} · ${esc(g.players)} · ${v}`;
-      $('#mDesc').textContent = g.description + (isWeb(g) ? ' Needs an internet connection; your progress is saved on this PC.' : '') +
-        (demo(g) ? ' New demo versions arrive automatically through the launcher.' : '');
-      $('#mMeta').innerHTML = `<span class="mplats">Plays on ${plays(g)}</span><span>Opened <b>${opens(s.playCount)}</b></span><span>Played <b>${dur(played(s))}</b></span><span>Last played <b>${ago(s.lastPlayed)}</b></span>` +
-        (s.installed && s.installedAt ? `<span>Installed <b>${ago(s.installedAt)}</b></span>` : '');
+      $('#mDesc').innerHTML = isLocal(g) ? `Added from <code class="path">${esc(g.exe)}</code>. The launcher starts it and tracks your play time; updates come from the game itself.` : esc(g.description + (isWeb(g) ? ' Needs an internet connection; your progress is saved on this PC.' : '') +
+        (demo(g) ? ' New demo versions arrive automatically through the launcher.' : ''));
+      $('#mMeta').innerHTML = (isLocal(g) ? '' : `<span class="mplats">Plays on ${plays(g)}</span>`) + `<span>Opened <b>${opens(s.playCount)}</b></span><span>Played <b>${dur(played(s))}</b></span><span>Last played <b>${ago(s.lastPlayed)}</b></span>` +
+        (s.installed && s.installedAt ? `<span>${isLocal(g) ? 'Added' : 'Installed'} <b>${ago(s.installedAt)}</b></span>` : '');
       if (s.error) $('#mNotes').innerHTML = `<div class="err">${esc(s.error)}</div>`;
       else if (s.launchError) $('#mNotes').innerHTML = `<div class="err">${esc(s.launchError)}</div>`;
       else if (s.notes) $('#mNotes').innerHTML = `<div class="notes"><div class="nh">${s.update ? 'New in' : 'What’s new in'} version ${esc(s.latestVersion)}${s.publishedAt ? ` <span>· ${ago(s.publishedAt)}</span>` : ''}</div>${notesHtml(s.notes)}</div>`;
       $('#mActions').innerHTML = `<button class="btn ${p.cls} small" data-act="${p.act || ''}" ${p.act ? '' : 'disabled'}>${p.html}</button>
         ${s.error ? '<button class="btn ghost small" data-retry>Try again</button>' : ''}
         ${s.installed && s.update && !s.running && !s.installing ? '<button class="btn ghost small" data-act="play">▶&nbsp; Play ' + esc(s.installedVersion) + '</button>' : ''}
-        ${s.installed && !s.running && !s.installing ? '<button class="btn danger" data-act="uninstall">Uninstall</button>' : ''}
+        ${isLocal(g) && !s.running ? '<button class="btn ghost small" data-rename>Rename</button>' : ''}
+        ${s.installed && !s.running && !s.installing ? `<button class="btn danger" data-act="uninstall">${isLocal(g) ? 'Remove from launcher' : 'Uninstall'}</button>` : ''}
         <button class="btn ghost small" data-close>Close</button>`;
+      const rn = $('#mActions').querySelector('[data-rename]');
+      if (rn) rn.onclick = () => renameDialog(g);
       const rt = $('#mActions').querySelector('[data-retry]');
       if (rt) rt.onclick = async () => { await api('/api/dismiss', { id }).catch(() => { }); delete state.games[id].error; act(id, 'install'); };
     }
@@ -325,6 +350,7 @@
     openModal();
   }
   function confirmUninstall(g) {
+    if (isLocal(g)) return confirmRemove(g);
     modalId = null;
     $('#mPill').innerHTML = '<span class="pill miss">UNINSTALL</span>';
     $('#mTitle').textContent = `Uninstall ${g.title}${demo(g) ? ' Demo' : ''}?`;
@@ -338,6 +364,88 @@
       try { const r = await api('/api/uninstall', { id: g.id }); Object.assign(state.games, r.games); toast(`${g.title} was uninstalled.`); }
       catch (e) { toast(cap(e.message) + '.'); }
       busy[g.id] = false; renderAll();
+    };
+    $('#mActions').querySelector('[data-close]').onclick = closeModal;
+    openModal();
+  }
+  function confirmRemove(g) {
+    modalId = null;
+    $('#mPill').innerHTML = '<span class="pill miss">REMOVE</span>';
+    $('#mTitle').textContent = `Remove ${g.title} from the launcher?`;
+    $('#mSub').textContent = '';
+    $('#mNotes').innerHTML = '';
+    $('#mDesc').textContent = `${g.title} disappears from the launcher, along with its play stats here. The game itself isn't touched: its files stay on this PC and you can add it again any time.`;
+    $('#mMeta').innerHTML = '';
+    $('#mActions').innerHTML = '<button class="btn danger" data-yes>Remove</button><button class="btn ghost small" data-close>Cancel</button>';
+    $('#mActions').querySelector('[data-yes]').onclick = async () => {
+      closeModal();
+      try { await api('/api/custom/remove', { id: g.id }); toast(`${g.title} was removed from the launcher.`); await reloadCatalog(); }
+      catch (e) { toast(cap(e.message) + '.'); }
+    };
+    $('#mActions').querySelector('[data-close]').onclick = closeModal;
+    openModal();
+  }
+
+  /* ---------- adding your own games ---------- */
+  async function reloadCatalog() {
+    const s = await api('/api/state');
+    catalog = await api('/api/catalog'); lastCat = s.catalogSize; state = s; renderAll();
+  }
+  function addGameDialog() {
+    modalId = null;
+    $('#mArt').innerHTML = '<div class="ccover add"><span class="plus">+</span></div>';
+    $('#mPill').innerHTML = '<span class="pill mine">NON-IRONITE GAME</span>';
+    $('#mTitle').textContent = 'Add a game';
+    $('#mSub').textContent = 'Play any game on this PC from Ironite Launcher.';
+    $('#mDesc').textContent = 'Choose the game\u2019s program (its .exe file). It appears under Non-Ironite Games and Installed, and the launcher tracks how long you play it.';
+    $('#mMeta').innerHTML = '';
+    $('#mNotes').innerHTML = `<div class="addform">
+        <label>Program<span class="row"><input id="agPath" type="text" placeholder="C:\\Games\\My Game\\MyGame.exe" spellcheck="false"><button class="btn ghost small" id="agBrowse">Browse…</button></span></label>
+        <label>Name<input id="agTitle" type="text" maxlength="60" placeholder="My Game"></label>
+        <div class="err hidden" id="agErr"></div></div>`;
+    $('#mActions').innerHTML = '<button class="btn play small" data-yes>+&nbsp; Add game</button><button class="btn ghost small" data-close>Cancel</button>';
+    const path = $('#agPath'), title = $('#agTitle'), err = $('#agErr');
+    let titleTouched = false;
+    title.oninput = () => titleTouched = true;
+    const showErr = m => { err.textContent = m; err.classList.toggle('hidden', !m); };
+    $('#agBrowse').onclick = async () => {
+      showErr('');
+      try {
+        const r = await api('/api/custom/browse', {});
+        if (r.path) { path.value = r.path; if (!titleTouched || !title.value) title.value = r.title || ''; }
+      } catch (e) { showErr(cap(e.message) + '.'); }
+    };
+    path.onchange = () => {
+      if (titleTouched && title.value) return;
+      const base = path.value.trim().replace(/^"|"$/g, '').split(/[\\/]/).pop().replace(/\.exe$/i, '');
+      title.value = base.replace(/([_\-\s]?(x64|x86|win64|win32|64bit|launcher|shipping))+$/i, '')
+        .replace(/[_\-.]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim().replace(/^./, c => c.toUpperCase());
+    };
+    $('#mActions').querySelector('[data-yes]').onclick = async () => {
+      showErr('');
+      try {
+        const r = await api('/api/custom/add', { path: path.value, title: title.value });
+        closeModal(); toast(`${title.value.trim() || 'Your game'} was added to the launcher.`);
+        await reloadCatalog();
+        if (view !== 'all' && view !== 'installed') go('custom');
+      } catch (e) { showErr(cap(e.message) + '.'); }
+    };
+    $('#mActions').querySelector('[data-close]').onclick = closeModal;
+    openModal();
+    setTimeout(() => path.focus(), 50);
+  }
+  function renameDialog(g) {
+    modalId = null;
+    $('#mPill').innerHTML = '<span class="pill mine">RENAME</span>';
+    $('#mTitle').textContent = `Rename ${g.title}`;
+    $('#mSub').textContent = '';
+    $('#mDesc').textContent = '';
+    $('#mMeta').innerHTML = '';
+    $('#mNotes').innerHTML = `<div class="addform"><label>Name<input id="rnTitle" type="text" maxlength="60" value="${esc(g.title)}"></label><div class="err hidden" id="rnErr"></div></div>`;
+    $('#mActions').innerHTML = '<button class="btn play small" data-yes>Save</button><button class="btn ghost small" data-close>Cancel</button>';
+    $('#mActions').querySelector('[data-yes]').onclick = async () => {
+      try { await api('/api/custom/rename', { id: g.id, title: $('#rnTitle').value }); closeModal(); await reloadCatalog(); }
+      catch (e) { const el = $('#rnErr'); el.textContent = cap(e.message) + '.'; el.classList.remove('hidden'); }
     };
     $('#mActions').querySelector('[data-close]').onclick = closeModal;
     openModal();
