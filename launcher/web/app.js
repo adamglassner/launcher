@@ -339,9 +339,12 @@
       $('#mActions').innerHTML = `<button class="btn ${p.cls} small" data-act="${p.act || ''}" ${p.act ? '' : 'disabled'}>${p.html}</button>
         ${s.error ? '<button class="btn ghost small" data-retry>Try again</button>' : ''}
         ${s.installed && s.update && !s.running && !s.installing ? '<button class="btn ghost small" data-act="play">▶&nbsp; Play ' + esc(s.installedVersion) + '</button>' : ''}
+        ${isLocal(g) && g.store && s.running ? '<button class="btn ghost small" data-closed>■&nbsp; It\u2019s closed</button>' : ''}
         ${isLocal(g) ? '<button class="btn ghost small" data-edit>✎&nbsp; Edit details</button>' : ''}
         ${s.installed && !s.running && !s.installing ? `<button class="btn danger" data-act="uninstall">${isLocal(g) ? 'Remove from launcher' : 'Uninstall'}</button>` : ''}
         <button class="btn ghost small" data-close>Close</button>`;
+      const cl = $('#mActions').querySelector('[data-closed]');
+      if (cl) cl.onclick = async () => { try { const r = await api('/api/custom/closed', { id }); Object.assign(state.games, r.games); renderAll(); } catch (e) { toast(cap(e.message) + '.'); } };
       const ed = $('#mActions').querySelector('[data-edit]');
       if (ed) ed.onclick = () => editDialog(g);
       const rt = $('#mActions').querySelector('[data-retry]');
@@ -396,6 +399,76 @@
       closeModal();
       try { await api('/api/custom/remove', { id: g.id }); toast(`${g.title} was removed from the launcher.`); await reloadCatalog(); }
       catch (e) { toast(cap(e.message) + '.'); }
+    };
+    $('#mActions').querySelector('[data-close]').onclick = closeModal;
+    openModal();
+  }
+
+  /* ---------- achievements from other launchers ---------- */
+  let achData = null, achOpen = {};
+  async function renderAchievements(refresh) {
+    const body = $('#achBody');
+    if (!achData || refresh) body.innerHTML = '<div class="muted ach-loading"><span class="spin"></span> Loading achievements from Steam and Xbox…</div>';
+    try { achData = await api('/api/ach' + (refresh ? '?refresh=1' : '')); }
+    catch (e) { body.innerHTML = `<div class="err">${esc(cap(e.message))}.</div>`; return; }
+    if (view !== 'achievements') return;
+    drawAchievements();
+  }
+  function drawAchievements() {
+    const d = achData, body = $('#achBody');
+    const linked = (d.games || []).filter(Boolean);
+    const steamWho = d.steamProfile ? `<span title="${esc(d.steamProfile)}">${esc(d.steamProfile.replace(/^https?:\/\/(www\.)?steamcommunity\.com\//i, ''))}</span>` : d.steamDetectedName ? `${esc(d.steamDetectedName)} <span class="muted">(signed in to Steam on this PC)</span>` : '<span class="muted">Not found. Paste your profile link.</span>';
+    let html = `<div class="ach-accounts">
+      <div class="acct"><b>Steam</b><span>${steamWho}</span><button class="linkbtn" data-acct="steam">${d.steamProfile ? 'Change' : 'Use another profile'}</button>
+        <small>Your Steam profile's <i>Game details</i> must be set to Public.</small></div>
+      <div class="acct"><b>Xbox</b><span>${d.xblKeySet ? 'Connected with your OpenXBL key' : '<span class="muted">Not connected</span>'}</span><button class="linkbtn" data-acct="xbox">${d.xblKeySet ? 'Change key' : 'Add OpenXBL key'}</button>
+        <small>Xbox achievements need a free key from xbl.io (sign in there with your Xbox account).</small></div>
+    </div>`;
+    if (!linked.length) {
+      html += `<div class="empty"><b>No games linked yet</b>Open one of your non-Ironite games, choose <i>Edit details</i>, and pick where its achievements come from (Steam or Xbox). Then they'll show up here.</div>`;
+    } else {
+      const tot = linked.reduce((t, r) => t + (r.total || 0), 0), got = linked.reduce((t, r) => t + (r.unlocked || 0), 0);
+      html += `<div class="ach-sum"><b>${got}</b> of ${tot} achievements unlocked across ${linked.length} ${linked.length === 1 ? 'game' : 'games'}
+        <button class="btn ghost small" data-achrefresh>⟳&nbsp; Refresh</button></div>`;
+      html += linked.map(r => {
+        const g = game(r.id); if (!g) return '';
+        const pct = r.total ? Math.round(r.unlocked * 100 / r.total) : 0, open = achOpen[r.id];
+        const src = r.source === 'xbox' ? 'Xbox' : 'Steam';
+        const head = `<button class="ach-game" data-achgame="${esc(r.id)}"><span class="ach-cv">${cover(r.id)}</span>
+          <span class="ach-info"><b>${esc(g.title)}</b><span class="muted">${src}${r.error ? '' : ` · ${r.unlocked} of ${r.total}` + (r.scoreTotal ? ` · ${r.score} / ${r.scoreTotal} G` : '')}</span>
+          ${r.error ? `<span class="ach-err">${esc(cap(r.error))}.</span>` : `<span class="bar big"><i style="width:${pct}%"></i></span>`}</span>
+          ${r.error ? '' : `<span class="ach-pct">${pct}%</span><span class="chev">${open ? '▾' : '▸'}</span>`}</button>`;
+        const items = open && !r.error ? `<div class="ach-items">${r.items.map(it => `<div class="ach-item ${it.unlocked ? 'got' : ''}">
+            ${it.icon ? `<img src="${esc(it.icon)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<span class=noicon>★</span>'">` : '<span class="noicon">★</span>'}
+            <span><b>${esc(it.name)}</b>${it.description ? `<small>${esc(it.description)}</small>` : ''}</span>
+            <span class="when">${it.unlocked ? (it.unlockedAt ? ago(it.unlockedAt) : 'Unlocked') : 'Locked'}${it.score ? ` · ${it.score} G` : ''}</span></div>`).join('')}</div>` : '';
+        return `<div class="ach-card">${head}${items}</div>`;
+      }).join('');
+    }
+    body.innerHTML = html;
+    body.querySelectorAll('[data-achgame]').forEach(b => b.onclick = () => { achOpen[b.dataset.achgame] = !achOpen[b.dataset.achgame]; drawAchievements(); });
+    const rf = body.querySelector('[data-achrefresh]'); if (rf) rf.onclick = () => renderAchievements(true);
+    body.querySelectorAll('[data-acct]').forEach(b => b.onclick = () => accountDialog(b.dataset.acct));
+  }
+  function accountDialog(kind) {
+    modalId = null;
+    const steam = kind === 'steam';
+    $('#mArt').innerHTML = `<div class="ccover add"><span class="plus">${steam ? '♨' : 'X'}</span></div>`;
+    $('#mPill').innerHTML = '<span class="pill mine">ACHIEVEMENTS</span>';
+    $('#mTitle').textContent = steam ? 'Steam profile' : 'Xbox (OpenXBL key)';
+    $('#mSub').textContent = '';
+    $('#mDesc').textContent = steam
+      ? 'Paste your Steam profile link (for example steamcommunity.com/id/yourname), or leave it empty to use the account signed in to Steam on this PC. In Steam, set Profile > Privacy Settings > Game details to Public.'
+      : 'Xbox achievements need a sign-in, so the launcher reads them through OpenXBL. Go to xbl.io, sign in with your Xbox account, copy your API key, and paste it here. The key is stored only on this PC.';
+    $('#mMeta').innerHTML = '';
+    $('#mNotes').innerHTML = `<div class="addform"><label>${steam ? 'Profile link or ID' : 'OpenXBL API key'}<input id="acVal" type="${steam ? 'text' : 'password'}" spellcheck="false" value="${steam ? esc(achData.steamProfile || '') : ''}" placeholder="${steam ? 'steamcommunity.com/id/yourname' : achData.xblKeySet ? 'Leave empty to remove the key' : 'Paste your key'}"></label><div class="err hidden" id="fErr"></div></div>`;
+    $('#mActions').innerHTML = '<button class="btn play small" data-yes>Save</button><button class="btn ghost small" data-close>Cancel</button>';
+    $('#mActions').querySelector('[data-yes]').onclick = async () => {
+      formErr('');
+      try {
+        await api('/api/ach/accounts', steam ? { steamProfile: $('#acVal').value } : { xblKey: $('#acVal').value });
+        closeModal(); renderAchievements(true);
+      } catch (e) { formErr(e.message); }
     };
     $('#mActions').querySelector('[data-close]').onclick = closeModal;
     openModal();
@@ -547,6 +620,11 @@
         <div class="two"><label>Developer<input id="fDev" type="text" maxlength="60" placeholder="Who made it" value="${esc(g.subtitle === 'Your game' ? '' : g.subtitle)}"></label>
           <label>Players<input id="fPlayers" type="text" maxlength="40" placeholder="1 player" value="${esc(g.players === 'On this PC' ? '' : g.players)}"></label></div>
         <label>Description<textarea id="fDesc" rows="3" maxlength="1200" placeholder="What the game is about">${esc(g.description || '')}</textarea></label>
+        <label>Achievements from<span class="row achrow">
+          <select id="fAch"><option value="">None</option><option value="steam" ${g.achSource === 'steam' ? 'selected' : ''}>Steam</option><option value="xbox" ${g.achSource === 'xbox' ? 'selected' : ''}>Xbox</option></select>
+          <input id="fAchId" type="text" spellcheck="false" placeholder="" value="${esc(g.achSource === 'xbox' ? (g.xboxTitleId || '') : (g.steamAppId || ''))}">
+          <button class="btn ghost small" id="fAchFind">Find</button></span>
+          <span class="muted small" id="fAchHelp"></span></label>
         <label>Cover art<span class="row artrow">
           <button class="btn ghost small" id="fArtPick">🖼&nbsp; Choose picture…</button>
           <button class="btn ghost small ${g.art ? '' : 'hidden'}" id="fArtDel">Use the game\u2019s icon</button>
@@ -555,6 +633,25 @@
         <div class="err hidden" id="fErr"></div></div>`;
     $('#mActions').innerHTML = '<button class="btn play small" data-yes>Save</button><button class="btn ghost small" data-close>Cancel</button>';
     wireCategory();
+    const achSel = $('#fAch'), achId = $('#fAchId'), achHelp = $('#fAchHelp');
+    const achUI = () => {
+      const v = achSel.value;
+      achId.classList.toggle('hidden', !v); $('#fAchFind').classList.toggle('hidden', !v);
+      achId.placeholder = v === 'xbox' ? 'Xbox title ID' : 'Steam app ID or store link';
+      achHelp.textContent = v === 'steam' ? 'The number in the game\u2019s Steam store link (store.steampowered.com/app/NUMBER). Find fills it in for games installed by Steam.'
+        : v === 'xbox' ? 'Find looks it up from the game, or your Xbox game history (needs your OpenXBL key on the Achievements page).' : '';
+    };
+    achSel.onchange = () => { achId.value = ''; achUI(); };
+    achUI();
+    $('#fAchFind').onclick = async () => {
+      formErr('');
+      try {
+        const r = await api('/api/ach/detect', { id: g.id });
+        if (!r.source) return formErr(achSel.value === 'xbox' ? 'couldn\u2019t find it automatically; type the title ID' : 'couldn\u2019t find it automatically; paste the game\u2019s Steam store link');
+        achSel.value = r.source; achUI(); achId.value = r.source === 'xbox' ? r.xboxTitleId : r.steamAppId;
+        if (r.found) achHelp.textContent = `Found: ${r.found}`;
+      } catch (e) { formErr(e.message); }
+    };
     const preview = src => { $('#mArt').innerHTML = src ? `<div class="ccover hasart"><img class="art" src="${src}" alt=""></div>` : customCover(Object.assign({}, g, { art: false })); };
     const useFile = async f => { formErr(''); try { art = await loadArt(f); preview(art); $('#fArtDel').classList.remove('hidden'); } catch (e) { formErr(e.message); } };
     $('#fArtPick').onclick = () => $('#fArtFile').click();
@@ -569,7 +666,10 @@
       const c = readCategory();
       if ($('#fCat').value === 'new' && !c.group) return formErr('type a name for the new category');
       try {
-        await api('/api/custom/update', Object.assign({ id: g.id, title: $('#fTitle').value, developer: $('#fDev').value, players: $('#fPlayers').value, description: $('#fDesc').value }, c));
+        const src = achSel.value, aid = achId.value.trim();
+        if (src && !/\d/.test(aid)) return formErr(src === 'xbox' ? 'type the game\u2019s Xbox title ID, or click Find' : 'type the game\u2019s Steam app ID, or click Find');
+        await api('/api/custom/update', Object.assign({ id: g.id, title: $('#fTitle').value, developer: $('#fDev').value, players: $('#fPlayers').value, description: $('#fDesc').value,
+          achSource: src, steamAppId: src === 'steam' ? aid : (g.steamAppId || ''), xboxTitleId: src === 'xbox' ? aid : (g.xboxTitleId || '') }, c));
         if (art !== undefined) await api('/api/custom/setart', { id: g.id, data: art });
         await reloadCatalog();
         details(g.id); toast('Saved.');
@@ -641,6 +741,7 @@
     $('#vNews').classList.toggle('hidden', v !== 'news');
     $('#vAbout').classList.toggle('hidden', v !== 'about');
     if (v === 'news') renderNews().catch(e => toast(e.message));
+    else if (v === 'achievements') renderAchievements();
     else renderAll();
     $('#main').scrollTop = 0;
   }

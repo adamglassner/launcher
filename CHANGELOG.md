@@ -4,6 +4,19 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.11.0] - 2026-11-08
+
+### Added
+- Achievements from other launchers for your non-Ironite games. In a game's Edit details, choose where its achievements come from: Steam (by the game's Steam app ID) or Xbox (by its Xbox title ID). Find fills these in automatically for games installed by Steam and for Xbox games.
+- The Achievements page lists your linked games with how many achievements you've unlocked (and gamerscore for Xbox), and each game opens to show every achievement with its icon and when you got it.
+- Steam achievements come from your public Steam profile (the account signed in to Steam on this PC is found automatically). Xbox achievements use a free OpenXBL key from xbl.io.
+
+### Fixed
+- Xbox and Microsoft Store games no longer keep showing as running after you close them. The launcher now recognizes the game by its app package as well as its folder and program names, and the game's details have an "It's closed" button just in case.
+
+### Changed
+- Achievements for Ironite games are still coming soon; the Achievements page says so at the top.
+
 ## [2.10.0] - 2026-11-08
 
 ### Added

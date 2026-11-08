@@ -54,10 +54,13 @@ type catalogGame struct {
 	Demo        bool     `json:"demo,omitempty"`
 	Type        string   `json:"type,omitempty"` // "web" = plays online
 	// The player's own games ("local"):
-	Group string `json:"group,omitempty"` // category name shown on Non-Ironite Games
-	Art   bool   `json:"art,omitempty"`   // has custom cover art
-	Store bool   `json:"store,omitempty"` // a Microsoft Store / Xbox app
-	URL   string `json:"url,omitempty"`
+	Group       string `json:"group,omitempty"`     // category name shown on Non-Ironite Games
+	Art         bool   `json:"art,omitempty"`       // has custom cover art
+	Store       bool   `json:"store,omitempty"`     // a Microsoft Store / Xbox app
+	AchSource   string `json:"achSource,omitempty"` // where its achievements come from
+	SteamAppID  string `json:"steamAppId,omitempty"`
+	XboxTitleID string `json:"xboxTitleId,omitempty"`
+	URL         string `json:"url,omitempty"`
 }
 
 func (g catalogGame) isWeb() bool { return g.Type == "web" }
@@ -80,6 +83,9 @@ type settings struct {
 	Installs   map[string]*installRecord `json:"installs,omitempty"`
 	AutoUpdate *bool                     `json:"autoUpdate,omitempty"`
 	Custom     []*customGame             `json:"custom,omitempty"` // the player's own games
+	// Accounts for achievements from other launchers.
+	SteamProfile string `json:"steamProfile,omitempty"` // a profile link or ID; empty = the account signed in to Steam here
+	XblKey       string `json:"xblKey,omitempty"`       // OpenXBL API key, for Xbox achievements
 }
 
 type gameState struct {
@@ -120,7 +126,8 @@ type app struct {
 	started   map[string]time.Time
 	credited  map[string]time.Time // last time play time was saved, per running game
 	jobs      map[string]*installJob
-	launchErr map[string]string // why a game didn't start
+	launchErr map[string]string        // why a game didn't start
+	stopWatch map[string]chan struct{} // "it's closed" for Store / Xbox games being watched
 	token     string
 	lastSeen  atomic.Int64
 	seen      atomic.Bool
@@ -436,7 +443,7 @@ func (a *app) launch(id string) error {
 	a.mu.Unlock()
 
 	var cmd *exec.Cmd
-	storeDir, storeLaunch := "", false // for Store / Xbox games
+	var store *storeMatch // for Store / Xbox games
 	if g.isWeb() {
 		// Its own app window and browser profile, kept in %APPDATA% so the
 		// game's saved progress survives updates and uninstalls.
@@ -462,7 +469,8 @@ func (a *app) launch(id string) error {
 			// Windows starts Store / Xbox apps; we then watch for the game's
 			// processes in its install folder to count play time.
 			cmd = storeAppCommand(c.AppID)
-			storeDir, storeLaunch = c.Location, true
+			m := newStoreMatch(c.AppID, c.Location)
+			store = &m
 		} else {
 			if _, err := os.Stat(c.Path); err != nil {
 				return errors.New("the game's program wasn't found at " + c.Path)
@@ -518,8 +526,15 @@ func (a *app) launch(id string) error {
 	exited := make(chan struct{})
 	go func() {
 		err := cmd.Wait() // for Store games this is just Explorer handing over
-		if storeLaunch {
-			waitForStoreGame(storeDir, start)
+		if store != nil {
+			stop := make(chan struct{})
+			a.mu.Lock()
+			a.stopWatch[id] = stop
+			a.mu.Unlock()
+			waitForStoreGame(id, *store, start, stop)
+			a.mu.Lock()
+			delete(a.stopWatch, id)
+			a.mu.Unlock()
 			close(exited)
 			return
 		}
@@ -862,6 +877,7 @@ func (a *app) routes() http.Handler {
 		})
 	}
 	a.customRoutes(mux, guard, writeJSON)
+	a.achievementRoutes(mux, guard, writeJSON)
 	mux.HandleFunc("/api/launch", action(a.launch))
 	mux.HandleFunc("/api/install", action(a.install))
 	mux.HandleFunc("/api/uninstall", action(a.uninstall))
@@ -986,7 +1002,7 @@ func main() {
 	migrateOldFolders()
 
 	a := &app{running: map[string]*exec.Cmd{}, started: map[string]time.Time{}, credited: map[string]time.Time{},
-		jobs: map[string]*installJob{}, launchErr: map[string]string{}, checkNow: make(chan struct{}, 1)}
+		jobs: map[string]*installJob{}, launchErr: map[string]string{}, stopWatch: map[string]chan struct{}{}, checkNow: make(chan struct{}, 1)}
 	a.loadSettings()
 	a.rel = loadReleaseCache()
 	cb, _ := webFS.ReadFile("web/games.json")

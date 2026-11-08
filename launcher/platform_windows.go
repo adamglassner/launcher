@@ -589,30 +589,55 @@ type processEntry32W struct {
 	szExeFile           [260]uint16
 }
 
-// processesUnder counts running programs that live in dir.
-func processesUnder(dir string) int {
-	dir = strings.ToLower(filepath.Clean(dir)) + `\`
+var pGetPackageFamilyName = kernel32.NewProc("GetPackageFamilyName")
+
+// storeProcesses counts running programs that belong to a Store / Xbox game:
+// same package, inside its install folder, or one of its program names.
+func storeProcesses(m storeMatch) (int, string) {
+	dir := ""
+	if m.Dir != "" {
+		dir = strings.ToLower(filepath.Clean(m.Dir)) + `\`
+	}
 	snap, _, _ := pCreateSnapshot.Call(2, 0) // TH32CS_SNAPPROCESS
 	if snap == 0 || snap == ^uintptr(0) {
-		return 0
+		return 0, ""
 	}
 	defer pCloseHandle.Call(snap)
 	var pe processEntry32W
 	pe.dwSize = uint32(unsafe.Sizeof(pe))
-	n := 0
+	n, what := 0, ""
 	buf := make([]uint16, 1024)
 	for ok, _, _ := pProcess32First.Call(snap, uintptr(unsafe.Pointer(&pe))); ok != 0; ok, _, _ = pProcess32Next.Call(snap, uintptr(unsafe.Pointer(&pe))) {
+		name := strings.ToLower(syscall.UTF16ToString(pe.szExeFile[:]))
+		if m.Exes[name] {
+			n, what = n+1, name
+			continue
+		}
 		h, _, _ := pOpenProcess.Call(0x1000, 0, uintptr(pe.th32ProcessID)) // QUERY_LIMITED_INFORMATION
 		if h == 0 {
 			continue
 		}
-		size := uint32(len(buf))
-		if r, _, _ := pQueryImageName.Call(h, 0, uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size))); r != 0 {
-			if strings.HasPrefix(strings.ToLower(syscall.UTF16ToString(buf[:size])), dir) {
-				n++
+		matched := false
+		if m.Family != "" && pGetPackageFamilyName.Find() == nil {
+			size := uint32(len(buf))
+			if r, _, _ := pGetPackageFamilyName.Call(h, uintptr(unsafe.Pointer(&size)), uintptr(unsafe.Pointer(&buf[0]))); r == 0 {
+				if strings.EqualFold(syscall.UTF16ToString(buf[:size]), m.Family) {
+					matched, what = true, name+" (package)"
+				}
+			}
+		}
+		if !matched && dir != "" {
+			size := uint32(len(buf))
+			if r, _, _ := pQueryImageName.Call(h, 0, uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size))); r != 0 {
+				if strings.HasPrefix(strings.ToLower(syscall.UTF16ToString(buf[:size])), dir) {
+					matched, what = true, name+" (folder)"
+				}
 			}
 		}
 		pCloseHandle.Call(h)
+		if matched {
+			n++
+		}
 	}
-	return n
+	return n, what
 }

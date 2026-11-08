@@ -266,3 +266,39 @@ h3.subcat .count{font:500 12px var(--body);letter-spacing:0;text-transform:none;
 .applist .err{margin:6px}
 .dlg{max-height:94vh}.dlg-body{overflow:auto;max-height:94vh;box-sizing:border-box}.dlg-art{min-height:0}
 .addform input,.addform select,.addform textarea{box-sizing:border-box;width:100%}.addform .row input{width:auto}.addform label.chk input{width:auto}
+/* Achievements page */
+.ach-soon{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:16px 0 18px;color:var(--muted);font-size:13px;max-width:860px}
+.ach-loading{display:flex;align-items:center;gap:8px;margin:20px 0}
+.ach-accounts{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;max-width:860px;margin-bottom:18px}
+.acct{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:center;background:rgba(255,255,255,.02)}
+.acct b{font:700 13px var(--display);letter-spacing:.08em;text-transform:uppercase}
+.acct small{grid-column:1/-1;color:#7f8592;font-size:11.5px}
+.ach-sum{display:flex;align-items:center;gap:8px;margin:6px 0 12px;color:var(--muted);max-width:860px}
+.ach-sum b{color:var(--text);font:700 18px var(--display)}
+.ach-sum .btn{margin-left:auto}
+.ach-card{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;max-width:860px;overflow:hidden;background:var(--panel)}
+.ach-game{display:flex;align-items:center;gap:14px;width:100%;background:none;border:0;color:inherit;text-align:left;padding:10px 14px;cursor:pointer}
+.ach-game:hover{background:rgba(255,255,255,.03)}
+.ach-cv{width:44px;height:55px;border-radius:6px;overflow:hidden;flex:none;display:block}
+.ach-cv .ccover .ci{font-size:18px}.ach-cv .ccover .cname{display:none}.ach-cv svg{width:100%;height:100%}
+.ach-info{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
+.ach-info b{font:600 15px var(--display)}
+.ach-info .muted{font-size:12px}
+.ach-err{color:#f0b1aa;font-size:12.5px}
+.bar.big{display:block;width:100%;max-width:420px;height:6px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden}
+.bar.big i{display:block;height:100%;background:linear-gradient(90deg,var(--ember2),#f3d27a)}
+.ach-pct{font:700 16px var(--display);color:#f3d27a}
+.chev{color:var(--muted);width:14px}
+.ach-items{border-top:1px solid var(--line);padding:6px 10px 10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:4px}
+.ach-item{display:grid;grid-template-columns:40px 1fr auto;gap:10px;align-items:center;padding:6px;border-radius:8px;opacity:.55}
+.ach-item.got{opacity:1}
+.ach-item img,.ach-item .noicon{width:40px;height:40px;border-radius:6px;object-fit:cover;background:#0f1218;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.ach-item:not(.got) img{filter:grayscale(1)}
+.ach-item b{display:block;font-size:13.5px;font-weight:600}
+.ach-item small{display:block;color:var(--muted);font-size:12px}
+.ach-item .when{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.ach-item.got .when{color:#8fe0b0}
+.addform .achrow select{flex:0 0 130px;width:130px}
+.addform .achrow input{flex:1;min-width:0}
+.acct > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ach-soon .pill{flex:none;white-space:nowrap}

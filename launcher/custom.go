@@ -41,6 +41,11 @@ type customGame struct {
 	Players     string `json:"players,omitempty"`
 	Description string `json:"description,omitempty"`
 	Art         string `json:"art,omitempty"` // file name of custom cover art in CustomIcons
+
+	// Achievements from another launcher.
+	AchSource   string `json:"achSource,omitempty"` // "steam", "xbox" or ""
+	SteamAppID  string `json:"steamAppId,omitempty"`
+	XboxTitleID string `json:"xboxTitleId,omitempty"`
 }
 
 func (cg *customGame) isStore() bool { return cg.AppID != "" }
@@ -79,6 +84,7 @@ func (a *app) mergeCustom() {
 			ID: cg.ID, Title: cg.Title, Subtitle: cg.Developer, Category: customCategoryID,
 			Platforms: []string{"windows"}, Players: cg.Players, Type: "local", Exe: cg.Path,
 			Description: cg.Description, Group: cg.Group, Art: cg.Art != "", Store: cg.isStore(),
+			AchSource: cg.AchSource, SteamAppID: cg.SteamAppID, XboxTitleID: cg.XboxTitleID,
 		}
 		if name, ok := catNames[cg.Category]; ok && cg.Category != customCategoryID {
 			g.Category, g.Group = cg.Category, name
@@ -154,6 +160,7 @@ func newCustomID() string {
 // customDetails are the parts of a game the player can edit.
 type customDetails struct {
 	Title, Category, Group, Developer, Players, Description string
+	AchSource, SteamAppID, XboxTitleID                      *string // nil = leave as is
 }
 
 func clip(s string, n int) string {
@@ -176,6 +183,19 @@ func (d customDetails) apply(cg *customGame) {
 	cg.Developer = clip(d.Developer, 60)
 	cg.Players = clip(d.Players, 40)
 	cg.Description = clip(d.Description, 1200)
+	digits := regexp.MustCompile(`\d+`)
+	if d.AchSource != nil {
+		switch v := strings.TrimSpace(*d.AchSource); v {
+		case "steam", "xbox", "":
+			cg.AchSource = v
+		}
+	}
+	if d.SteamAppID != nil { // accepts a store link too: store.steampowered.com/app/1234/...
+		cg.SteamAppID = digits.FindString(*d.SteamAppID)
+	}
+	if d.XboxTitleID != nil {
+		cg.XboxTitleID = digits.FindString(*d.XboxTitleID)
+	}
 }
 
 func (a *app) updateCustom(id string, d customDetails) error {
@@ -361,6 +381,7 @@ func (a *app) customRoutes(mux *http.ServeMux, guard func(http.HandlerFunc) http
 		ID, Title, Path, AppID, Location    string
 		Category, Group, Developer, Players string
 		Description, Data                   string
+		AchSource, SteamAppID, XboxTitleID  *string
 	}
 	read := func(w http.ResponseWriter, r *http.Request) (req, bool) {
 		var q req
@@ -430,7 +451,8 @@ func (a *app) customRoutes(mux *http.ServeMux, guard func(http.HandlerFunc) http
 		if !ok {
 			return
 		}
-		d := customDetails{Title: q.Title, Category: q.Category, Group: q.Group, Developer: q.Developer, Players: q.Players, Description: q.Description}
+		d := customDetails{Title: q.Title, Category: q.Category, Group: q.Group, Developer: q.Developer, Players: q.Players, Description: q.Description,
+			AchSource: q.AchSource, SteamAppID: q.SteamAppID, XboxTitleID: q.XboxTitleID}
 		if err := a.updateCustom(q.ID, d); err != nil {
 			http.Error(w, err.Error(), http.StatusConflict)
 			return
@@ -467,6 +489,20 @@ func (a *app) customRoutes(mux *http.ServeMux, guard func(http.HandlerFunc) http
 			apps[i].Added = added[strings.ToLower(apps[i].AppID)]
 		}
 		writeJSON(w, map[string]any{"apps": apps})
+	}))
+	mux.HandleFunc("/api/custom/closed", guard(func(w http.ResponseWriter, r *http.Request) {
+		q, ok := read(w, r)
+		if !ok {
+			return
+		}
+		a.mu.Lock()
+		if ch := a.stopWatch[q.ID]; ch != nil {
+			close(ch)
+			delete(a.stopWatch, q.ID)
+		}
+		a.mu.Unlock()
+		time.Sleep(300 * time.Millisecond) // let the play-time tracker finish
+		reply(w, nil)
 	}))
 	mux.HandleFunc("/api/custom/rename", guard(func(w http.ResponseWriter, r *http.Request) {
 		q, ok := read(w, r)
@@ -519,31 +555,74 @@ type storeApp struct {
 	Added    bool   `json:"added"`
 }
 
-// waitForStoreGame follows a Store / Xbox game Windows started for us: it
-// waits (up to 2 minutes) for a process from the game's install folder to
-// appear, then until all of them have closed.
-func waitForStoreGame(dir string, start time.Time) {
-	if dir == "" {
-		return
+// storeMatch says how to recognise a Store / Xbox game's running programs:
+// by package (the reliable way), by install folder, or by program name.
+type storeMatch struct {
+	Family string          // package family name, e.g. PlayStack.Balatro_3wcqaesafpzfy
+	Dir    string          // install folder
+	Exes   map[string]bool // program file names from the game's manifests (lower case)
+}
+
+var exeAttrRe = regexp.MustCompile(`(?i)(?:<Application\b[^>]*\bExecutable|<Executable\b[^>]*\bName)\s*=\s*"([^"]+)"`)
+
+func newStoreMatch(appID, dir string) storeMatch {
+	m := storeMatch{Dir: dir, Exes: map[string]bool{}}
+	m.Family, _, _ = strings.Cut(appID, "!")
+	for _, f := range []string{"AppxManifest.xml", "MicrosoftGame.config"} {
+		b, err := os.ReadFile(filepath.Join(dir, f))
+		if err != nil {
+			continue
+		}
+		for _, x := range exeAttrRe.FindAllStringSubmatch(string(b), -1) {
+			name := strings.ToLower(filepath.Base(strings.ReplaceAll(x[1], `\`, "/")))
+			if strings.HasSuffix(name, ".exe") && name != "gamelaunchhelper.exe" {
+				m.Exes[name] = true
+			}
+		}
 	}
+	return m
+}
+
+// waitForStoreGame follows a Store / Xbox game that Windows started for us:
+// it waits (up to 2 minutes) for one of the game's programs to appear, then
+// until they have all closed - or until the player says the game is closed.
+func waitForStoreGame(id string, m storeMatch, start time.Time, stop <-chan struct{}) {
+	log.Printf("%s: watching for package %s, folder %s, programs %v", id, m.Family, m.Dir, keys(m.Exes))
 	seen := false
 	quiet := 0
 	for {
-		time.Sleep(3 * time.Second)
-		n := processesUnder(dir)
+		select {
+		case <-stop:
+			log.Printf("%s: marked as closed", id)
+			return
+		case <-time.After(2 * time.Second):
+		}
+		n, what := storeProcesses(m)
 		switch {
 		case n > 0:
+			if !seen {
+				log.Printf("%s: running (%s)", id, what)
+			}
 			seen, quiet = true, 0
 		case seen:
 			quiet++
 			if quiet >= 2 { // gone for two checks in a row (some games restart themselves)
+				log.Printf("%s: closed", id)
 				return
 			}
 		case time.Since(start) > 2*time.Minute:
-			log.Printf("no process from %s appeared", dir)
+			log.Printf("%s: none of its programs appeared", id)
 			return
 		}
 	}
+}
+
+func keys(m map[string]bool) []string {
+	var out []string
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }
 
 var (

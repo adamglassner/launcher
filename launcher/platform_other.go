@@ -51,8 +51,8 @@ func exeIconPNG(string) ([]byte, error) { return nil, errors.New("icons are read
 
 // Xbox / Microsoft Store games are Windows-only. In development a sample
 // list is shown so the page can be tried out.
-func storeAppCommand(appID string) *exec.Cmd { return exec.Command("true") }
-func processesUnder(string) int              { return 0 }
+func storeAppCommand(appID string) *exec.Cmd  { return exec.Command("true") }
+func storeProcesses(storeMatch) (int, string) { return 0, "" }
 func listStoreApps() ([]storeApp, error) {
 	if os.Getenv("IRONITE_DEV") != "" {
 		return []storeApp{
