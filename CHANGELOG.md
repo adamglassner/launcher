@@ -4,6 +4,17 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.10.0] - 2026-11-08
+
+### Added
+- Add games from the Xbox app and Microsoft Store: Add a game has a new Xbox / Microsoft Store tab listing the games installed on this PC (with a search box). The launcher starts them through Windows, uses their own artwork, and tracks play time while they're open.
+- Categories for your own games: put a game in one of the launcher's categories (it shows up there too) or make your own, like Racing or Shooters. Non-Ironite Games groups your games by category.
+- Edit details for your own games: name, category, developer, players and a description.
+- Custom cover art: choose a picture (or drop one onto the cover) to use as a game's cover, or go back to the game's icon.
+
+### Changed
+- Rename is now part of Edit details.
+
 ## [2.9.0] - 2026-11-08
 
 ### Added

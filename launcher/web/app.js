@@ -30,10 +30,12 @@
   const isLocal = g => g && g.type === 'local';
   // The player's own games: a color from the name, the program's icon, and initials as a fallback.
   function customCover(g) {
+    const q = `id=${encodeURIComponent(g.id)}&t=${encodeURIComponent(token)}`;
+    if (g.art) return `<div class="ccover hasart"><img class="art" src="/api/custom/icon?kind=art&${q}&v=${lastCat}" alt=""></div>`;
     let h = 0; for (const ch of g.title) h = (h * 31 + ch.charCodeAt(0)) % 360;
     const initials = esc(g.title.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?');
     return `<div class="ccover" style="--h:${h}"><span class="ci">${initials}</span>` +
-      `<img src="/api/custom/icon?id=${encodeURIComponent(g.id)}&t=${encodeURIComponent(token)}" alt="" onload="this.previousElementSibling.style.display='none'" onerror="this.remove()">` +
+      `<img src="/api/custom/icon?${q}&v=${lastCat}" alt="" onload="this.previousElementSibling.style.display='none'" onerror="this.remove()">` +
       `<span class="cname">${esc(g.title)}</span></div>`;
   }
   const cover = id => { const g = game(id); return isLocal(g) ? customCover(g) : (Covers[id] || Covers.hiddenobj)(); };
@@ -130,7 +132,7 @@
     if (!avail(g)) return '<span class="pill soon">COMING SOON</span>';
     const s = st(g.id);
     if (isWeb(g)) return s.running ? '<span class="pill ready">PLAYING</span>' : '<span class="pill web">🌐 WEB GAME</span>';
-    if (isLocal(g)) return s.running ? '<span class="pill ready">PLAYING</span>' : s.launchError ? '<span class="pill miss">NOT FOUND</span>' : '<span class="pill mine">YOUR GAME</span>';
+    if (isLocal(g)) return s.running ? '<span class="pill ready">PLAYING</span>' : s.launchError ? '<span class="pill miss">NOT FOUND</span>' : g.store ? '<span class="pill mine">XBOX / STORE</span>' : '<span class="pill mine">YOUR GAME</span>';
     if (s.error) return '<span class="pill miss">INSTALL FAILED</span>';
     if (s.installing) return `<span class="pill inst">${s.phase === 'Downloading' ? (s.updating ? 'UPDATING' : 'DOWNLOADING') : 'INSTALLING'} ${s.progress || 0}%</span>`;
     if (s.running) return '<span class="pill ready">PLAYING</span>';
@@ -252,6 +254,20 @@
     return `<div class="cat"><div class="cat-h"><h2>${esc(title)}</h2><span class="count">${count}</span>${extra}</div>
       ${blurb ? `<p class="cat-b">${esc(blurb)}</p>` : ''}<div class="grid">${list.map(g => tile(g, where)).join('')}${tail}</div></div>`;
   }
+  // Non-Ironite Games: all of the player's own games, grouped by the category they gave them.
+  function customSection(c) {
+    const mine = catalog.games.filter(isLocal);
+    const n = mine.length, count = n ? `${n} ${n === 1 ? 'game' : 'games'}` : 'Add your first game';
+    const groups = [...new Set(mine.map(g => g.group || ''))].sort((a, b) => !a ? 1 : !b ? -1 : a.localeCompare(b));
+    if (view !== 'custom' || groups.length < 2) return section(c.name, count, c.blurb, mine, 'cat', '', addTile());
+    let html = `<div class="cat"><div class="cat-h"><h2>${esc(c.name)}</h2><span class="count">${count}</span></div><p class="cat-b">${esc(c.blurb)}</p>`;
+    groups.forEach((grp, i) => {
+      const list = mine.filter(g => (g.group || '') === grp);
+      html += `<h3 class="subcat">${esc(grp || 'No category')}<span class="count">${list.length}</span></h3>
+        <div class="grid">${list.map(g => tile(g, 'cat')).join('')}${i === groups.length - 1 ? addTile() : ''}</div>`;
+    });
+    return html + '</div>';
+  }
   const addTile = () => `<button class="tile addtile" data-addgame><span class="cv"><span class="plus">+</span></span>
       <span class="tt"><div class="t1">Add a game</div><div class="t2">Any game on this PC</div></span></button>`;
   function renderCats() {
@@ -271,10 +287,7 @@
         const list = catalog.games.filter(g => g.category === c.id);
         list.sort((a, b) => (avail(b) ? 1 : 0) - (avail(a) ? 1 : 0));
         const ready = list.filter(avail).length;
-        if (c.id === 'custom') {
-          const n = list.length;
-          return section(c.name, n ? `${n} ${n === 1 ? 'game' : 'games'}` : 'Add your first game', c.blurb, list, 'cat', '', addTile());
-        }
+        if (c.id === 'custom') return customSection(c);
         const count = ready === 0 ? 'Coming soon' : `${ready} available` + (list.length > ready ? ` · ${list.length - ready} coming soon` : '');
         return section(c.name, count, c.blurb, list, 'cat');
       }).join('');
@@ -310,11 +323,13 @@
       $('#mActions').innerHTML = '<button class="btn ghost small" data-close>Got it</button>';
     } else {
       const s = st(id), p = primary(id);
-      const v = isWeb(g) ? 'Web game' : isLocal(g) ? 'Not an Ironite game' : s.installed
+      const v = isWeb(g) ? 'Web game' : isLocal(g) ? (g.store ? 'Xbox / Microsoft Store' : 'Not an Ironite game') + (g.group ? ` · ${esc(g.group)}` : '') : s.installed
         ? `v${esc(s.installedVersion)} installed` + (s.update ? ` · v${esc(s.latestVersion)} available` : '')
         : `v${esc(s.latestVersion)}` + (s.size ? ` · ${size(s.size)} download` : '');
       $('#mSub').innerHTML = `${esc(g.subtitle)} · ${esc(g.players)} · ${v}`;
-      $('#mDesc').innerHTML = isLocal(g) ? `Added from <code class="path">${esc(g.exe)}</code>. The launcher starts it and tracks your play time; updates come from the game itself.` : esc(g.description + (isWeb(g) ? ' Needs an internet connection; your progress is saved on this PC.' : '') +
+      $('#mDesc').innerHTML = isLocal(g) ? (g.description ? `${esc(g.description)}<br><br>` : '') + (g.store
+          ? 'Added from the Xbox app / Microsoft Store. Windows starts it, and the launcher tracks your play time while it\u2019s open; updates come from the Xbox app or Store.'
+          : `Added from <code class="path">${esc(g.exe)}</code>. The launcher starts it and tracks your play time; updates come from the game itself.`) : esc(g.description + (isWeb(g) ? ' Needs an internet connection; your progress is saved on this PC.' : '') +
         (demo(g) ? ' New demo versions arrive automatically through the launcher.' : ''));
       $('#mMeta').innerHTML = (isLocal(g) ? '' : `<span class="mplats">Plays on ${plays(g)}</span>`) + `<span>Opened <b>${opens(s.playCount)}</b></span><span>Played <b>${dur(played(s))}</b></span><span>Last played <b>${ago(s.lastPlayed)}</b></span>` +
         (s.installed && s.installedAt ? `<span>${isLocal(g) ? 'Added' : 'Installed'} <b>${ago(s.installedAt)}</b></span>` : '');
@@ -324,11 +339,11 @@
       $('#mActions').innerHTML = `<button class="btn ${p.cls} small" data-act="${p.act || ''}" ${p.act ? '' : 'disabled'}>${p.html}</button>
         ${s.error ? '<button class="btn ghost small" data-retry>Try again</button>' : ''}
         ${s.installed && s.update && !s.running && !s.installing ? '<button class="btn ghost small" data-act="play">▶&nbsp; Play ' + esc(s.installedVersion) + '</button>' : ''}
-        ${isLocal(g) && !s.running ? '<button class="btn ghost small" data-rename>Rename</button>' : ''}
+        ${isLocal(g) ? '<button class="btn ghost small" data-edit>✎&nbsp; Edit details</button>' : ''}
         ${s.installed && !s.running && !s.installing ? `<button class="btn danger" data-act="uninstall">${isLocal(g) ? 'Remove from launcher' : 'Uninstall'}</button>` : ''}
         <button class="btn ghost small" data-close>Close</button>`;
-      const rn = $('#mActions').querySelector('[data-rename]');
-      if (rn) rn.onclick = () => renameDialog(g);
+      const ed = $('#mActions').querySelector('[data-edit]');
+      if (ed) ed.onclick = () => editDialog(g);
       const rt = $('#mActions').querySelector('[data-retry]');
       if (rt) rt.onclick = async () => { await api('/api/dismiss', { id }).catch(() => { }); delete state.games[id].error; act(id, 'install'); };
     }
@@ -391,63 +406,176 @@
     const s = await api('/api/state');
     catalog = await api('/api/catalog'); lastCat = s.catalogSize; state = s; renderAll();
   }
+  // Category choices: the launcher's categories, plus the player's own.
+  function categoryOptions(sel) {
+    const own = [...new Set(catalog.games.filter(isLocal).map(g => g.group).filter(Boolean))];
+    const launcher = catalog.categories.filter(c => c.id !== 'custom');
+    const launcherNames = new Set(launcher.map(c => c.name));
+    const opt = (v, label) => `<option value="${esc(v)}" ${v === sel ? 'selected' : ''}>${esc(label)}</option>`;
+    return opt('', 'No category') +
+      `<optgroup label="Launcher categories (the game shows there too)">${launcher.map(c => opt('cat:' + c.id, c.name)).join('')}</optgroup>` +
+      (own.filter(n => !launcherNames.has(n)).length ? `<optgroup label="Your categories">${own.filter(n => !launcherNames.has(n)).map(n => opt('grp:' + n, n)).join('')}</optgroup>` : '') +
+      opt('new', 'New category…');
+  }
+  const catValue = g => !g ? '' : g.category && g.category !== 'custom' ? 'cat:' + g.category : g.group ? 'grp:' + g.group : '';
+  function wireCategory() {
+    const sel = $('#fCat'), box = $('#fNewCat');
+    sel.onchange = () => { box.classList.toggle('hidden', sel.value !== 'new'); if (sel.value === 'new') box.focus(); };
+  }
+  function readCategory() {
+    const v = $('#fCat').value;
+    if (v === 'new') return { category: '', group: $('#fNewCat').value.trim() };
+    if (v.startsWith('cat:')) return { category: v.slice(4), group: '' };
+    if (v.startsWith('grp:')) return { category: '', group: v.slice(4) };
+    return { category: '', group: '' };
+  }
+  const catField = g => `<label>Category<select id="fCat">${categoryOptions(catValue(g))}</select>
+      <input id="fNewCat" class="hidden" type="text" maxlength="40" placeholder="New category name (for example Racing)"></label>`;
+  const formErr = m => { const el = $('#fErr'); el.textContent = m ? cap(m) + '.' : ''; el.classList.toggle('hidden', !m); };
+
   function addGameDialog() {
     modalId = null;
     $('#mArt').innerHTML = '<div class="ccover add"><span class="plus">+</span></div>';
     $('#mPill').innerHTML = '<span class="pill mine">NON-IRONITE GAME</span>';
     $('#mTitle').textContent = 'Add a game';
     $('#mSub').textContent = 'Play any game on this PC from Ironite Launcher.';
-    $('#mDesc').textContent = 'Choose the game\u2019s program (its .exe file). It appears under Non-Ironite Games and Installed, and the launcher tracks how long you play it.';
+    $('#mDesc').textContent = '';
     $('#mMeta').innerHTML = '';
-    $('#mNotes').innerHTML = `<div class="addform">
-        <label>Program<span class="row"><input id="agPath" type="text" placeholder="C:\\Games\\My Game\\MyGame.exe" spellcheck="false"><button class="btn ghost small" id="agBrowse">Browse…</button></span></label>
+    $('#mNotes').innerHTML = `<div class="tabs"><button class="on" data-tab="exe">Program (.exe)</button><button data-tab="store">Xbox / Microsoft Store</button></div>
+      <div class="addform">
+        <div data-pane="exe"><label>Program<span class="row"><input id="agPath" type="text" placeholder="C:\\Games\\My Game\\MyGame.exe" spellcheck="false"><button class="btn ghost small" id="agBrowse">Browse…</button></span></label></div>
+        <div data-pane="store" class="hidden">
+          <label>Game<span class="row"><input id="agSearch" type="text" placeholder="Search your Xbox and Store apps" spellcheck="false"></span></label>
+          <div class="applist" id="agApps"><div class="muted small">Loading your Xbox and Microsoft Store apps…</div></div>
+          <label class="chk"><input type="checkbox" id="agAll"> Show apps that aren\u2019t games too</label>
+        </div>
         <label>Name<input id="agTitle" type="text" maxlength="60" placeholder="My Game"></label>
-        <div class="err hidden" id="agErr"></div></div>`;
+        ${catField(null)}
+        <div class="err hidden" id="fErr"></div>
+        <div class="muted small">You can add details and your own cover art after adding it, with Edit details.</div></div>`;
     $('#mActions').innerHTML = '<button class="btn play small" data-yes>+&nbsp; Add game</button><button class="btn ghost small" data-close>Cancel</button>';
-    const path = $('#agPath'), title = $('#agTitle'), err = $('#agErr');
-    let titleTouched = false;
+    wireCategory();
+    const path = $('#agPath'), title = $('#agTitle');
+    let tab = 'exe', titleTouched = false, picked = null, apps = null;
     title.oninput = () => titleTouched = true;
-    const showErr = m => { err.textContent = m; err.classList.toggle('hidden', !m); };
+    const setTitle = t => { if (!titleTouched || !title.value) title.value = t || ''; };
+    document.querySelectorAll('.tabs [data-tab]').forEach(b => b.onclick = () => {
+      tab = b.dataset.tab;
+      document.querySelectorAll('.tabs [data-tab]').forEach(x => x.classList.toggle('on', x === b));
+      document.querySelectorAll('.addform [data-pane]').forEach(p => p.classList.toggle('hidden', p.dataset.pane !== tab));
+      formErr('');
+      if (tab === 'store' && !apps) loadApps();
+    });
     $('#agBrowse').onclick = async () => {
-      showErr('');
-      try {
-        const r = await api('/api/custom/browse', {});
-        if (r.path) { path.value = r.path; if (!titleTouched || !title.value) title.value = r.title || ''; }
-      } catch (e) { showErr(cap(e.message) + '.'); }
+      formErr('');
+      try { const r = await api('/api/custom/browse', {}); if (r.path) { path.value = r.path; setTitle(r.title); } }
+      catch (e) { formErr(e.message); }
     };
     path.onchange = () => {
-      if (titleTouched && title.value) return;
       const base = path.value.trim().replace(/^"|"$/g, '').split(/[\\/]/).pop().replace(/\.exe$/i, '');
-      title.value = base.replace(/([_\-\s]?(x64|x86|win64|win32|64bit|launcher|shipping))+$/i, '')
-        .replace(/[_\-.]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim().replace(/^./, c => c.toUpperCase());
+      setTitle(base.replace(/([_\-\s]?(x64|x86|win64|win32|64bit|launcher|shipping))+$/i, '')
+        .replace(/[_\-.]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim().replace(/^./, c => c.toUpperCase()));
     };
+    function drawApps() {
+      const box = $('#agApps'); if (!box || !apps) return;
+      const q = $('#agSearch').value.trim().toLowerCase(), all = $('#agAll').checked;
+      const games = apps.filter(a => a.game);
+      let list = apps.filter(a => (all || a.game || !games.length) && (!q || a.name.toLowerCase().includes(q)));
+      if (!list.length) { box.innerHTML = `<div class="muted small">${q ? 'Nothing matches that search.' : 'No Xbox or Microsoft Store games were found on this PC. Tick the box below to see other apps.'}</div>`; return; }
+      box.innerHTML = list.map(a => `<button class="app ${picked && picked.appId === a.appId ? 'on' : ''}" data-app="${esc(a.appId)}" ${a.added ? 'disabled' : ''}>
+          <b>${esc(a.name)}</b>${a.game ? '<span class="tag">XBOX GAME</span>' : ''}${a.added ? '<span class="tag dim">ADDED</span>' : ''}</button>`).join('');
+      box.querySelectorAll('[data-app]').forEach(b => b.onclick = () => {
+        picked = apps.find(a => a.appId === b.dataset.app); setTitle(picked.name); drawApps();
+      });
+    }
+    async function loadApps() {
+      try { apps = (await api('/api/custom/storeapps')).apps || []; drawApps(); }
+      catch (e) { $('#agApps').innerHTML = `<div class="err">${esc(cap(e.message))}.</div>`; }
+    }
+    $('#agSearch').oninput = drawApps; $('#agAll').onchange = drawApps;
     $('#mActions').querySelector('[data-yes]').onclick = async () => {
-      showErr('');
+      formErr('');
+      const c = readCategory();
+      if ($('#fCat').value === 'new' && !c.group) return formErr('type a name for the new category');
+      const body = Object.assign({ title: title.value }, c);
+      if (tab === 'store') {
+        if (!picked) return formErr('choose a game from the list');
+        Object.assign(body, { appId: picked.appId, location: picked.location });
+      } else body.path = path.value;
       try {
-        const r = await api('/api/custom/add', { path: path.value, title: title.value });
+        await api('/api/custom/add', body);
         closeModal(); toast(`${title.value.trim() || 'Your game'} was added to the launcher.`);
         await reloadCatalog();
         if (view !== 'all' && view !== 'installed') go('custom');
-      } catch (e) { showErr(cap(e.message) + '.'); }
+      } catch (e) { formErr(e.message); }
     };
     $('#mActions').querySelector('[data-close]').onclick = closeModal;
     openModal();
     setTimeout(() => path.focus(), 50);
   }
-  function renameDialog(g) {
+
+  // Shrinks a chosen picture to cover size (keeps uploads small) and returns a data: URL.
+  function loadArt(file) {
+    return new Promise((resolve, reject) => {
+      if (!file || !/^image\//.test(file.type)) return reject(new Error('choose a picture (PNG, JPEG, WebP or GIF)'));
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        const max = 1200, k = Math.min(1, max / Math.max(img.width, img.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        URL.revokeObjectURL(url);
+        resolve(file.type === 'image/png' ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.9));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('that picture couldn\u2019t be opened')); };
+      img.src = url;
+    });
+  }
+
+  function editDialog(g) {
     modalId = null;
-    $('#mPill').innerHTML = '<span class="pill mine">RENAME</span>';
-    $('#mTitle').textContent = `Rename ${g.title}`;
-    $('#mSub').textContent = '';
+    let art = undefined; // undefined = unchanged, '' = remove, data: URL = new picture
+    $('#mArt').innerHTML = cover(g.id);
+    $('#mPill').innerHTML = '<span class="pill mine">EDIT DETAILS</span>';
+    $('#mTitle').textContent = g.title;
+    $('#mSub').textContent = g.store ? 'Xbox / Microsoft Store game' : 'Your game';
     $('#mDesc').textContent = '';
     $('#mMeta').innerHTML = '';
-    $('#mNotes').innerHTML = `<div class="addform"><label>Name<input id="rnTitle" type="text" maxlength="60" value="${esc(g.title)}"></label><div class="err hidden" id="rnErr"></div></div>`;
+    $('#mNotes').innerHTML = `<div class="addform">
+        <label>Name<input id="fTitle" type="text" maxlength="60" value="${esc(g.title)}"></label>
+        ${catField(g)}
+        <div class="two"><label>Developer<input id="fDev" type="text" maxlength="60" placeholder="Who made it" value="${esc(g.subtitle === 'Your game' ? '' : g.subtitle)}"></label>
+          <label>Players<input id="fPlayers" type="text" maxlength="40" placeholder="1 player" value="${esc(g.players === 'On this PC' ? '' : g.players)}"></label></div>
+        <label>Description<textarea id="fDesc" rows="3" maxlength="1200" placeholder="What the game is about">${esc(g.description || '')}</textarea></label>
+        <label>Cover art<span class="row artrow">
+          <button class="btn ghost small" id="fArtPick">🖼&nbsp; Choose picture…</button>
+          <button class="btn ghost small ${g.art ? '' : 'hidden'}" id="fArtDel">Use the game\u2019s icon</button>
+          <input type="file" id="fArtFile" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden"></span>
+          <span class="muted small">A tall picture works best (4:5, like 800 × 1000). You can also drop a picture onto the cover.</span></label>
+        <div class="err hidden" id="fErr"></div></div>`;
     $('#mActions').innerHTML = '<button class="btn play small" data-yes>Save</button><button class="btn ghost small" data-close>Cancel</button>';
+    wireCategory();
+    const preview = src => { $('#mArt').innerHTML = src ? `<div class="ccover hasart"><img class="art" src="${src}" alt=""></div>` : customCover(Object.assign({}, g, { art: false })); };
+    const useFile = async f => { formErr(''); try { art = await loadArt(f); preview(art); $('#fArtDel').classList.remove('hidden'); } catch (e) { formErr(e.message); } };
+    $('#fArtPick').onclick = () => $('#fArtFile').click();
+    $('#fArtFile').onchange = e => useFile(e.target.files[0]);
+    $('#fArtDel').onclick = () => { art = ''; preview(''); $('#fArtDel').classList.add('hidden'); };
+    const drop = $('#mArt');
+    drop.ondragover = e => { e.preventDefault(); drop.classList.add('drop'); };
+    drop.ondragleave = () => drop.classList.remove('drop');
+    drop.ondrop = e => { e.preventDefault(); drop.classList.remove('drop'); if (e.dataTransfer.files[0]) useFile(e.dataTransfer.files[0]); };
     $('#mActions').querySelector('[data-yes]').onclick = async () => {
-      try { await api('/api/custom/rename', { id: g.id, title: $('#rnTitle').value }); closeModal(); await reloadCatalog(); }
-      catch (e) { const el = $('#rnErr'); el.textContent = cap(e.message) + '.'; el.classList.remove('hidden'); }
+      formErr('');
+      const c = readCategory();
+      if ($('#fCat').value === 'new' && !c.group) return formErr('type a name for the new category');
+      try {
+        await api('/api/custom/update', Object.assign({ id: g.id, title: $('#fTitle').value, developer: $('#fDev').value, players: $('#fPlayers').value, description: $('#fDesc').value }, c));
+        if (art !== undefined) await api('/api/custom/setart', { id: g.id, data: art });
+        await reloadCatalog();
+        details(g.id); toast('Saved.');
+      } catch (e) { formErr(e.message); }
     };
-    $('#mActions').querySelector('[data-close]').onclick = closeModal;
+    $('#mActions').querySelector('[data-close]').onclick = () => details(g.id);
     openModal();
   }
   $('#modal').onclick = e => { if (e.target.id === 'modal') closeModal(); };

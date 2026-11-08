@@ -236,3 +236,33 @@ code.path{font-family:Consolas,monospace;font-size:12px;background:rgba(255,255,
 .addform input:focus{border-color:var(--ember2)}
 .addform .err{background:rgba(230,90,80,.1);border:1px solid rgba(230,90,80,.4);color:#f0b1aa;border-radius:10px;padding:9px 12px;font-size:13px;letter-spacing:0;text-transform:none}
 .addform input{user-select:text}
+/* Custom art, categories, edit form, Xbox / Store picker */
+.ccover.hasart{background:#0d0f14}
+.ccover.hasart img.art{width:100%;height:100%;max-width:none;aspect-ratio:auto;object-fit:cover;filter:none}
+.dlg-art.drop{outline:2px dashed var(--ember2);outline-offset:-8px}
+h3.subcat{font:600 14px var(--display);letter-spacing:.08em;text-transform:uppercase;color:#d9cdb6;margin:22px 0 12px;display:flex;align-items:center;gap:10px}
+h3.subcat .count{font:500 12px var(--body);letter-spacing:0;text-transform:none;color:var(--muted)}
+.tabs{display:flex;gap:6px;margin:-4px 0 14px;border-bottom:1px solid var(--line)}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);font:600 12.5px var(--display);letter-spacing:.06em;padding:8px 10px;cursor:pointer;margin-bottom:-1px}
+.tabs button.on{color:var(--text);border-bottom-color:var(--ember2)}
+.addform select,.addform textarea{background:#0f1218;border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:inherit;font:400 13.5px var(--body);letter-spacing:0;text-transform:none;outline:none;user-select:text}
+.addform textarea{resize:vertical;min-height:62px}
+.addform select:focus,.addform textarea:focus{border-color:var(--ember2)}
+.addform select option,.addform select optgroup{background:#151922;color:var(--text)}
+.addform .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.addform #fNewCat{margin-top:6px}
+.addform .artrow{flex-wrap:wrap}
+.addform .muted.small{font:400 12px var(--body);letter-spacing:0;text-transform:none}
+.addform label.chk{flex-direction:row;align-items:center;gap:7px;font:400 12.5px var(--body);letter-spacing:0;text-transform:none}
+.addform label.chk input{flex:none}
+.applist{max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:#0f1218;padding:4px;display:flex;flex-direction:column;gap:2px}
+.applist .app{display:flex;align-items:center;gap:8px;text-align:left;background:none;border:0;border-radius:6px;color:inherit;padding:7px 9px;cursor:pointer;font:400 13.5px var(--body)}
+.applist .app:hover{background:rgba(255,255,255,.05)}
+.applist .app.on{background:rgba(232,135,58,.18);outline:1px solid rgba(232,135,58,.5)}
+.applist .app:disabled{opacity:.45;cursor:default}
+.applist .app b{font-weight:500;flex:1}
+.applist .tag{font:700 9.5px var(--display);letter-spacing:.14em;color:#8fe0b0;border:1px solid rgba(95,196,137,.45);border-radius:4px;padding:2px 5px}
+.applist .tag.dim{color:var(--muted);border-color:var(--line)}
+.applist .err{margin:6px}
+.dlg{max-height:94vh}.dlg-body{overflow:auto;max-height:94vh;box-sizing:border-box}.dlg-art{min-height:0}
+.addform input,.addform select,.addform textarea{box-sizing:border-box;width:100%}.addform .row input{width:auto}.addform label.chk input{width:auto}

@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
@@ -14,8 +15,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 	"unicode/utf16"
@@ -507,4 +510,109 @@ func exeIconPNG(path string) ([]byte, error) {
 		return nil, err
 	}
 	return out.Bytes(), nil
+}
+
+/* ---------- Microsoft Store / Xbox games ---------- */
+
+// storeAppCommand asks Windows to start a Store / Xbox app.
+func storeAppCommand(appID string) *exec.Cmd {
+	cmd := exec.Command(filepath.Join(os.Getenv("WINDIR"), "explorer.exe"), `shell:AppsFolder\`+appID)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	return cmd
+}
+
+const storeAppsScript = `$ErrorActionPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$pk = @{}
+foreach ($p in Get-AppxPackage) { if ($p.InstallLocation) { $pk[$p.PackageFamilyName] = $p.InstallLocation } }
+$out = @()
+foreach ($a in Get-StartApps) {
+  $id = $a.AppID
+  if ($id -notlike '*!*') { continue }
+  $loc = $pk[$id.Split('!')[0]]
+  $game = $false
+  if ($loc) { $game = Test-Path -LiteralPath (Join-Path $loc 'MicrosoftGame.config') }
+  $out += [pscustomobject]@{ name = $a.Name; appId = $id; location = [string]$loc; game = $game }
+}
+ConvertTo-Json -InputObject @($out) -Compress`
+
+var storeCache struct {
+	sync.Mutex
+	apps []storeApp
+	at   time.Time
+}
+
+// listStoreApps lists the Store / Xbox apps in the Start menu, games first.
+func listStoreApps() ([]storeApp, error) {
+	storeCache.Lock()
+	defer storeCache.Unlock()
+	if storeCache.apps != nil && time.Since(storeCache.at) < time.Minute {
+		return append([]storeApp(nil), storeCache.apps...), nil
+	}
+	ps := filepath.Join(os.Getenv("WINDIR"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+	cmd := exec.Command(ps, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", storeAppsScript)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000} // CREATE_NO_WINDOW
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("couldn't list your Xbox and Microsoft Store apps (%v)", err)
+	}
+	var apps []storeApp
+	if err := json.Unmarshal(bytes.TrimSpace(bytes.TrimPrefix(out, []byte("\xef\xbb\xbf"))), &apps); err != nil {
+		return nil, fmt.Errorf("couldn't read the list of apps (%v)", err)
+	}
+	sort.SliceStable(apps, func(i, j int) bool {
+		if apps[i].Game != apps[j].Game {
+			return apps[i].Game
+		}
+		return strings.ToLower(apps[i].Name) < strings.ToLower(apps[j].Name)
+	})
+	storeCache.apps, storeCache.at = apps, time.Now()
+	return append([]storeApp(nil), apps...), nil
+}
+
+var (
+	pCreateSnapshot = kernel32.NewProc("CreateToolhelp32Snapshot")
+	pProcess32First = kernel32.NewProc("Process32FirstW")
+	pProcess32Next  = kernel32.NewProc("Process32NextW")
+)
+
+type processEntry32W struct {
+	dwSize              uint32
+	cntUsage            uint32
+	th32ProcessID       uint32
+	th32DefaultHeapID   uintptr
+	th32ModuleID        uint32
+	cntThreads          uint32
+	th32ParentProcessID uint32
+	pcPriClassBase      int32
+	dwFlags             uint32
+	szExeFile           [260]uint16
+}
+
+// processesUnder counts running programs that live in dir.
+func processesUnder(dir string) int {
+	dir = strings.ToLower(filepath.Clean(dir)) + `\`
+	snap, _, _ := pCreateSnapshot.Call(2, 0) // TH32CS_SNAPPROCESS
+	if snap == 0 || snap == ^uintptr(0) {
+		return 0
+	}
+	defer pCloseHandle.Call(snap)
+	var pe processEntry32W
+	pe.dwSize = uint32(unsafe.Sizeof(pe))
+	n := 0
+	buf := make([]uint16, 1024)
+	for ok, _, _ := pProcess32First.Call(snap, uintptr(unsafe.Pointer(&pe))); ok != 0; ok, _, _ = pProcess32Next.Call(snap, uintptr(unsafe.Pointer(&pe))) {
+		h, _, _ := pOpenProcess.Call(0x1000, 0, uintptr(pe.th32ProcessID)) // QUERY_LIMITED_INFORMATION
+		if h == 0 {
+			continue
+		}
+		size := uint32(len(buf))
+		if r, _, _ := pQueryImageName.Call(h, 0, uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size))); r != 0 {
+			if strings.HasPrefix(strings.ToLower(syscall.UTF16ToString(buf[:size])), dir) {
+				n++
+			}
+		}
+		pCloseHandle.Call(h)
+	}
+	return n
 }

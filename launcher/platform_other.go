@@ -48,3 +48,20 @@ func browseForGame(string) (string, error) {
 	return "", errors.New("browsing for a program works on Windows; type its full path instead")
 }
 func exeIconPNG(string) ([]byte, error) { return nil, errors.New("icons are read on Windows only") }
+
+// Xbox / Microsoft Store games are Windows-only. In development a sample
+// list is shown so the page can be tried out.
+func storeAppCommand(appID string) *exec.Cmd { return exec.Command("true") }
+func processesUnder(string) int              { return 0 }
+func listStoreApps() ([]storeApp, error) {
+	if os.Getenv("IRONITE_DEV") != "" {
+		return []storeApp{
+			{Name: "Forza Horizon 5", AppID: "Microsoft.SunriseBaseGame_8wekyb3d8bbwe!SunriseReleaseFinal", Location: `C:\XboxGames\Forza Horizon 5\Content`, Game: true},
+			{Name: "Microsoft Solitaire Collection", AppID: "Microsoft.MicrosoftSolitaireCollection_8wekyb3d8bbwe!App", Location: `C:\Program Files\WindowsApps\Microsoft.MicrosoftSolitaireCollection`, Game: true},
+			{Name: "Minecraft Launcher", AppID: "Microsoft.4297127D64EC6_8wekyb3d8bbwe!Minecraft", Location: `C:\XboxGames\Minecraft Launcher\Content`, Game: true},
+			{Name: "Calculator", AppID: "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App", Location: `C:\Program Files\WindowsApps\Microsoft.WindowsCalculator`},
+			{Name: "Xbox", AppID: "Microsoft.GamingApp_8wekyb3d8bbwe!Microsoft.Xbox.App", Location: `C:\Program Files\WindowsApps\Microsoft.GamingApp`},
+		}, nil
+	}
+	return nil, errors.New("Xbox and Microsoft Store games can be added on Windows")
+}

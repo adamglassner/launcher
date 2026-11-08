@@ -53,7 +53,11 @@ type catalogGame struct {
 	Exe         string   `json:"exe,omitempty"`
 	Demo        bool     `json:"demo,omitempty"`
 	Type        string   `json:"type,omitempty"` // "web" = plays online
-	URL         string   `json:"url,omitempty"`
+	// The player's own games ("local"):
+	Group string `json:"group,omitempty"` // category name shown on Non-Ironite Games
+	Art   bool   `json:"art,omitempty"`   // has custom cover art
+	Store bool   `json:"store,omitempty"` // a Microsoft Store / Xbox app
+	URL   string `json:"url,omitempty"`
 }
 
 func (g catalogGame) isWeb() bool { return g.Type == "web" }
@@ -237,9 +241,15 @@ func (a *app) states() map[string]gameState { // caller holds a.mu
 			st.Available, st.Installed = true, true
 			if cg := a.customByID(g.ID); cg != nil {
 				st.InstalledAt = cg.AddedAt
-			}
-			if _, err := os.Stat(g.Exe); err != nil {
-				st.LaunchError = "The game's program wasn't found at " + g.Exe + ". If it moved, remove it from the launcher and add it again."
+				if cg.isStore() {
+					if cg.Location != "" {
+						if _, err := os.Stat(cg.Location); err != nil {
+							st.LaunchError = "This Xbox / Microsoft Store game doesn't seem to be installed any more. Reinstall it from the Xbox app or Microsoft Store, or remove it from the launcher."
+						}
+					}
+				} else if _, err := os.Stat(cg.Path); err != nil {
+					st.LaunchError = "The game's program wasn't found at " + cg.Path + ". If it moved, remove it from the launcher and add it again."
+				}
 			}
 		} else if g.isWeb() {
 			st.Available = g.URL != ""
@@ -426,6 +436,7 @@ func (a *app) launch(id string) error {
 	a.mu.Unlock()
 
 	var cmd *exec.Cmd
+	storeDir, storeLaunch := "", false // for Store / Xbox games
 	if g.isWeb() {
 		// Its own app window and browser profile, kept in %APPDATA% so the
 		// game's saved progress survives updates and uninstalls.
@@ -437,10 +448,27 @@ func (a *app) launch(id string) error {
 		}
 		cmd = c
 	} else if g.isLocal() {
-		if _, err := os.Stat(g.Exe); err != nil {
-			return errors.New("the game's program wasn't found at " + g.Exe)
+		a.mu.Lock()
+		cg := a.customByID(id)
+		var c customGame
+		if cg != nil {
+			c = *cg
 		}
-		cmd = gameCommand(g.Exe, filepath.Dir(g.Exe))
+		a.mu.Unlock()
+		if cg == nil {
+			return errors.New("unknown game")
+		}
+		if c.isStore() {
+			// Windows starts Store / Xbox apps; we then watch for the game's
+			// processes in its install folder to count play time.
+			cmd = storeAppCommand(c.AppID)
+			storeDir, storeLaunch = c.Location, true
+		} else {
+			if _, err := os.Stat(c.Path); err != nil {
+				return errors.New("the game's program wasn't found at " + c.Path)
+			}
+			cmd = gameCommand(c.Path, filepath.Dir(c.Path))
+		}
 	} else {
 		if rec == nil {
 			return errors.New("install the game first")
@@ -489,7 +517,12 @@ func (a *app) launch(id string) error {
 	// Track time played. Saved every minute so a crash loses at most a minute.
 	exited := make(chan struct{})
 	go func() {
-		err := cmd.Wait()
+		err := cmd.Wait() // for Store games this is just Explorer handing over
+		if storeLaunch {
+			waitForStoreGame(storeDir, start)
+			close(exited)
+			return
+		}
 		if took := time.Since(start); took < 8*time.Second && !g.isWeb() {
 			code := -1
 			if cmd.ProcessState != nil {
