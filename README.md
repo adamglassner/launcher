@@ -42,6 +42,7 @@ Installed launchers update themselves.
 | Old Maid | [adamglassner/oldmaid](https://github.com/adamglassner/oldmaid) | `OldMaid-<v>-windows.zip` |
 | Euchre | [adamglassner/euchre](https://github.com/adamglassner/euchre) | `Euchre-<v>-windows.zip` |
 | Hearts | [adamglassner/hearts](https://github.com/adamglassner/hearts) | `Hearts-<v>-windows.zip` |
+| Gin Rummy | [adamglassner/ginrummy](https://github.com/adamglassner/ginrummy) | `GinRummy-<v>-windows.zip` |
 | Maple Lane Finds | [adamglassner/maple-lane-finds](https://github.com/adamglassner/maple-lane-finds) | `MapleLaneFinds-Setup-<v>.exe` |
 | Solar Siege | [adamglassner/Solar-Siege](https://github.com/adamglassner/Solar-Siege) | `SolarSiege-<v>-windows.zip` |
 | Snugfit | [adamglassner/snugfit](https://github.com/adamglassner/snugfit) | `Snugfit-Setup-<v>.exe` |

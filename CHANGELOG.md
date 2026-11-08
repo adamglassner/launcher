@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.12.0] - 2026-11-08
+
+### Added
+- Gin Rummy: A Club Car Card Game is now available to install from Card Games (no longer Coming Soon). Knock, go gin or undercut your way across the prairie in the club car of the Starlight Limited against a new passenger every game, or play a friend on the same computer or online. It downloads and updates from its own GitHub repository like the other games, and it has new cover art and a spot in the featured carousel.
+
 ## [2.11.0] - 2026-11-08
 
 ### Added

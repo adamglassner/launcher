@@ -90,10 +90,8 @@
       <rect x="-46" y="-10" width="12" height="34" rx="5" fill="#d9372b"/><rect x="-6" y="40" width="12" height="34" rx="5" fill="#2a5bc4"/><rect x="34" y="-90" width="12" height="34" rx="5" fill="#e7c35a"/></g>` +
       card(320, 420, 18, '5', '♥', { w: 70 }) + card(90, 150, -16, 'J', '♦', { w: 70, center: '♞' })),
 
-    ginrummy: () => svg('0 0 400 500', felt('fg', '#2b7a78', '#0b2827') +
-      card(110, 200, -18, '5', '♦', { w: 82 }) + card(165, 188, -6, '6', '♦', { w: 82 }) + card(220, 186, 6, '7', '♦', { w: 82 }) + card(275, 198, 18, '8', '♦', { w: 82 }) +
-      card(150, 370, -8, '9', '♣', { w: 82 }) + card(200, 366, 0, '9', '♥', { w: 82 }) + card(250, 370, 8, '9', '♠', { w: 82 }) +
-      `<text x="200" y="470" text-anchor="middle" font-family="Bahnschrift,sans-serif" font-weight="700" font-size="26" letter-spacing="10" fill="#e7c35a">GIN!</text>`),
+    ginrummy: () => '<img src="covers/ginrummy.jpg" alt="Gin Rummy">',
+    ginrummyHero: () => '<img src="covers/ginrummy-hero.jpg" alt="Gin Rummy">',
 
     chess: () => svg('0 0 400 500', `<defs><linearGradient id="chb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c1a22"/><stop offset="1" stop-color="#3a2f2a"/></linearGradient></defs>
       <rect width="400" height="500" fill="url(#chb)"/>
