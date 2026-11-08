@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.8.0] - 2026-11-07
+
+### Added
+- Hearts: A Paris Café Card Game is now available to install from Card Games (no longer Coming Soon). Dodge the hearts and the Queen of Spades against three café regulars, or play friends on the same computer or online. It downloads and updates from its own GitHub repository like the other games, and it has new cover art and a spot in the featured carousel.
+
 ## [2.7.0] - 2026-11-07
 
 ### Added

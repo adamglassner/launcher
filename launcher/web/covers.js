@@ -77,9 +77,8 @@
     oldmaidHero: () => '<img src="covers/oldmaid-hero.jpg" alt="Old Maid">',
     euchre: () => '<img src="covers/euchre.jpg" alt="Euchre">',
     euchreHero: () => '<img src="covers/euchre-hero.jpg" alt="Euchre">',
-    hearts: () => svg('0 0 400 500', felt('fht', '#b3263a', '#3d0b14') +
-      `<path d="M200 420 C40 310 70 170 150 170 C185 170 200 200 200 210 C200 200 215 170 250 170 C330 170 360 310 200 420Z" fill="#e84a5f" opacity=".85"/>` +
-      card(255, 165, 14, 'Q', '♠', { w: 84, center: '♛' }) + card(145, 175, -12, '2', '♥', { w: 76 })),
+    hearts: () => '<img src="covers/hearts.jpg" alt="Hearts">',
+    heartsHero: () => '<img src="covers/hearts-hero.jpg" alt="Hearts">',
 
     spades: () => svg('0 0 400 500', felt('fs', '#323a4f', '#0d1018') +
       `<path d="M200 90 C120 180 70 230 110 300 C140 350 185 330 192 310 L170 410 H230 L208 310 C215 330 260 350 290 300 C330 230 280 180 200 90Z" fill="#e9e3d6"/>` +
