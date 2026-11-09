@@ -4,6 +4,14 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.13.0] - 2026-11-08
+
+### Added
+- Cribbage: A Lighthouse Card Game is now available to install from Card Games (no longer Coming Soon). Count fifteens, pairs and runs and peg to 121 (or 61) in the keeper's cottage at Seal Harbor Light, against the cottage regulars or with friends on the same computer or online, two to four players. It downloads and updates from its own GitHub repository like the other games, and it has new cover art and a spot in the featured carousel.
+
+### Fixed
+- Uninstalling the launcher now also closes Hearts, Gin Rummy and Cribbage if they're running, like the other games.
+
 ## [2.12.0] - 2026-11-08
 
 ### Added

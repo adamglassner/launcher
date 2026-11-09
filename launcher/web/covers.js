@@ -79,16 +79,12 @@
     euchreHero: () => '<img src="covers/euchre-hero.jpg" alt="Euchre">',
     hearts: () => '<img src="covers/hearts.jpg" alt="Hearts">',
     heartsHero: () => '<img src="covers/hearts-hero.jpg" alt="Hearts">',
+    cribbage: () => '<img src="covers/cribbage.jpg" alt="Cribbage">',
+    cribbageHero: () => '<img src="covers/cribbage-hero.jpg" alt="Cribbage">',
 
     spades: () => svg('0 0 400 500', felt('fs', '#323a4f', '#0d1018') +
       `<path d="M200 90 C120 180 70 230 110 300 C140 350 185 330 192 310 L170 410 H230 L208 310 C215 330 260 350 290 300 C330 230 280 180 200 90Z" fill="#e9e3d6"/>` +
       card(300, 400, 14, 'A', '♠', { w: 70 }) + card(100, 410, -12, 'K', '♠', { w: 70, center: '♚' })),
-
-    cribbage: () => svg('0 0 400 500', `<rect width="400" height="500" fill="#3b2516"/>
-      <g transform="translate(200 250) rotate(-12)"><rect x="-90" y="-210" width="180" height="420" rx="26" fill="#b07a43" stroke="#6b4422" stroke-width="5"/>
-      ${Array.from({ length: 3 }, (_, c) => Array.from({ length: 24 }, (_, r) => `<circle cx="${-40 + c * 40}" cy="${-180 + r * 15.6 + Math.floor(r / 5) * 2}" r="3.6" fill="#4a2c14"/>`).join('')).join('')}
-      <rect x="-46" y="-10" width="12" height="34" rx="5" fill="#d9372b"/><rect x="-6" y="40" width="12" height="34" rx="5" fill="#2a5bc4"/><rect x="34" y="-90" width="12" height="34" rx="5" fill="#e7c35a"/></g>` +
-      card(320, 420, 18, '5', '♥', { w: 70 }) + card(90, 150, -16, 'J', '♦', { w: 70, center: '♞' })),
 
     ginrummy: () => '<img src="covers/ginrummy.jpg" alt="Gin Rummy">',
     ginrummyHero: () => '<img src="covers/ginrummy-hero.jpg" alt="Gin Rummy">',

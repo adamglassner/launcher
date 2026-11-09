@@ -182,6 +182,12 @@ Section "Uninstall"
   Pop $0
   nsProcess::_KillProcess "Euchre.exe"
   Pop $0
+  nsProcess::_KillProcess "Hearts.exe"
+  Pop $0
+  nsProcess::_KillProcess "Cribbage.exe"
+  Pop $0
+  nsProcess::_KillProcess "GinRummy.exe"
+  Pop $0
   nsProcess::_KillProcess "MapleLaneFinds.exe"
   Pop $0
   nsProcess::_KillProcess "Snugfit.exe"
