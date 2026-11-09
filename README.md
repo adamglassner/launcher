@@ -44,6 +44,7 @@ Installed launchers update themselves.
 | Hearts | [adamglassner/hearts](https://github.com/adamglassner/hearts) | `Hearts-<v>-windows.zip` |
 | Gin Rummy | [adamglassner/ginrummy](https://github.com/adamglassner/ginrummy) | `GinRummy-<v>-windows.zip` |
 | Cribbage | [adamglassner/cribbage](https://github.com/adamglassner/cribbage) | `Cribbage-<v>-windows.zip` |
+| Spades | [adamglassner/spades](https://github.com/adamglassner/spades) | `Spades-<v>-windows.zip` |
 | Maple Lane Finds | [adamglassner/maple-lane-finds](https://github.com/adamglassner/maple-lane-finds) | `MapleLaneFinds-Setup-<v>.exe` |
 | Solar Siege | [adamglassner/Solar-Siege](https://github.com/adamglassner/Solar-Siege) | `SolarSiege-<v>-windows.zip` |
 | Snugfit | [adamglassner/snugfit](https://github.com/adamglassner/snugfit) | `Snugfit-Setup-<v>.exe` |

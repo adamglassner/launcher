@@ -4,6 +4,14 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.14.0] - 2026-11-09
+
+### Added
+- Spades: A Brooklyn Rooftop Card Game is now available to install from Card Games (no longer Coming Soon). Bid your tricks with a partner, go Nil if you dare and watch the bags on a rooftop under string lights, against the rooftop regulars or with friends on the same computer or online, one to four players. It downloads and updates from its own GitHub repository like the other games, and it has new cover art and a spot in the featured carousel.
+
+### Fixed
+- Uninstalling the launcher now also closes Spades if it's running, like the other games.
+
 ## [2.13.0] - 2026-11-08
 
 ### Added

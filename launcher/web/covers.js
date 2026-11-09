@@ -82,9 +82,8 @@
     cribbage: () => '<img src="covers/cribbage.jpg" alt="Cribbage">',
     cribbageHero: () => '<img src="covers/cribbage-hero.jpg" alt="Cribbage">',
 
-    spades: () => svg('0 0 400 500', felt('fs', '#323a4f', '#0d1018') +
-      `<path d="M200 90 C120 180 70 230 110 300 C140 350 185 330 192 310 L170 410 H230 L208 310 C215 330 260 350 290 300 C330 230 280 180 200 90Z" fill="#e9e3d6"/>` +
-      card(300, 400, 14, 'A', '♠', { w: 70 }) + card(100, 410, -12, 'K', '♠', { w: 70, center: '♚' })),
+    spades: () => '<img src="covers/spades.jpg" alt="Spades">',
+    spadesHero: () => '<img src="covers/spades-hero.jpg" alt="Spades">',
 
     ginrummy: () => '<img src="covers/ginrummy.jpg" alt="Gin Rummy">',
     ginrummyHero: () => '<img src="covers/ginrummy-hero.jpg" alt="Gin Rummy">',

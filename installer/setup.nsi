@@ -188,6 +188,8 @@ Section "Uninstall"
   Pop $0
   nsProcess::_KillProcess "GinRummy.exe"
   Pop $0
+  nsProcess::_KillProcess "Spades.exe"
+  Pop $0
   nsProcess::_KillProcess "MapleLaneFinds.exe"
   Pop $0
   nsProcess::_KillProcess "Snugfit.exe"
