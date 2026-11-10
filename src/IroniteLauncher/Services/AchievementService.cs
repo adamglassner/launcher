@@ -10,7 +10,10 @@ using Ironite.Launcher.Models;
 namespace Ironite.Launcher.Services;
 
 /// <summary>
-/// Achievements from other launchers, for the player's own (non-Ironite) games.
+/// Achievements in one place.
+///   - Ironite games: each game writes its own file to %APPDATA%\Ironite\Achievements\&lt;game id&gt;.json, with its
+///     icons in a folder of the same name beside it (see <see cref="Ironite"/>). Nothing to set up.
+/// And from other launchers, for the player's own (non-Ironite) games:
 ///   - Steam: read from the player's public Steam Community profile (no key needed).
 ///     The profile's "Game details" must be public.
 ///   - Xbox: read through OpenXBL (xbl.io), with the player's own free API key, since Xbox Live needs a
@@ -33,6 +36,92 @@ public static class AchievementService
     private static string XblBase => (Environment.GetEnvironmentVariable("IRONITE_XBL_BASE") is { Length: > 0 } v ? v : "https://xbl.io/api/v2").TrimEnd('/');
 
     public static void ClearCache() { lock (Cache) Cache.Clear(); }
+
+    // ---------- Ironite games ----------
+
+    /// <summary>Where Ironite games share their achievements (IRONITE_ACHIEVEMENTS_DIR overrides it, for tests).</summary>
+    public static string IroniteDir { get; set; } = Environment.GetEnvironmentVariable("IRONITE_ACHIEVEMENTS_DIR") is { Length: > 0 } d
+        ? d
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Ironite", "Achievements");
+
+    public static bool HasIronite(string gameId) => File.Exists(Path.Combine(IroniteDir, gameId + ".json"));
+
+    /// <summary>
+    /// An Ironite game's achievements, read from the file the game keeps up to date:
+    /// <code>
+    /// { "schema": 1, "game": "solarsiege", "title": "Solar Siege", "updated": 1762790000, "icon_hidden": "solarsiege/hidden.png",
+    ///   "achievements": [ { "id": "sunrise", "name": "Sunrise", "description": "...", "category": "Campaign", "hidden": false,
+    ///                       "unlocked": true, "unlocked_at": 1762790000, "progress": 1, "target": 1,
+    ///                       "icon": "solarsiege/sunrise.png", "icon_locked": "solarsiege/sunrise_locked.png" } ] }
+    /// </code>
+    /// Icon paths are relative to the file. Returns null when the game hasn't written one (not played yet).
+    /// </summary>
+    public static AchievementResult? Ironite(string gameId)
+    {
+        var path = Path.Combine(IroniteDir, gameId + ".json");
+        if (!File.Exists(path)) return null;
+        var r = new AchievementResult { Id = gameId, Source = "ironite", FetchedAt = DateTime.UtcNow };
+        try
+        {
+            string body;
+            // the game may be writing it right now
+            using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            using (var rd = new StreamReader(fs)) body = rd.ReadToEnd();
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            string? Icon(string rel)
+            {
+                if (string.IsNullOrWhiteSpace(rel)) return null;
+                var full = Path.GetFullPath(Path.Combine(IroniteDir, rel.Replace('/', Path.DirectorySeparatorChar)));
+                return full.StartsWith(Path.GetFullPath(IroniteDir), StringComparison.OrdinalIgnoreCase) && File.Exists(full) ? new Uri(full).AbsoluteUri : null;
+            }
+            var hiddenIcon = Icon(Str(root, "icon_hidden"));
+            if (root.TryGetProperty("achievements", out var list) && list.ValueKind == JsonValueKind.Array)
+                foreach (var a in list.EnumerateArray())
+                {
+                    var unlocked = a.TryGetProperty("unlocked", out var u) && u.ValueKind == JsonValueKind.True;
+                    var hidden = a.TryGetProperty("hidden", out var h) && h.ValueKind == JsonValueKind.True;
+                    long.TryParse(Str(a, "unlocked_at"), out var at);
+                    int.TryParse(Str(a, "progress"), out var prog);
+                    int.TryParse(Str(a, "target"), out var target);
+                    var it = new Achievement
+                    {
+                        Name = Str(a, "name"), Description = Str(a, "description"), Category = Str(a, "category"),
+                        Unlocked = unlocked, UnlockedAt = at, Hidden = hidden, Progress = Math.Max(0, prog), Target = Math.Max(1, target),
+                        Icon = unlocked ? Icon(Str(a, "icon")) : Icon(Str(a, "icon_locked")) ?? Icon(Str(a, "icon")),
+                    };
+                    if (hidden && !unlocked)
+                    {
+                        // secret ones stay secret here too, as they do in the game
+                        it.Name = "Secret achievement";
+                        it.Description = "Keep playing to discover this one.";
+                        it.Icon = hiddenIcon;
+                        it.Progress = 0;
+                        it.Target = 1;
+                    }
+                    if (it.Name.Length > 0) r.Items.Add(it);
+                }
+            if (r.Items.Count == 0) r.Error = "this game hasn't listed any achievements yet";
+        }
+        catch (Exception ex)
+        {
+            Log.Info($"ironite achievements {gameId}: {ex.Message}");
+            r.Error = "couldn't read this game's achievements; play it again to refresh them";
+        }
+        return Finish(r);
+    }
+
+    private static AchievementResult Finish(AchievementResult r)
+    {
+        r.Total = r.Unlocked = r.Score = r.ScoreTotal = 0;
+        foreach (var it in r.Items)
+        {
+            r.Total++;
+            r.ScoreTotal += it.Score;
+            if (it.Unlocked) { r.Unlocked++; r.Score += it.Score; }
+        }
+        return r;
+    }
 
     // ---------- Steam ----------
 
@@ -299,12 +388,7 @@ public static class AchievementService
         }
         r.Id = cg.Id;
         r.FetchedAt = DateTime.UtcNow;
-        foreach (var it in r.Items)
-        {
-            r.Total++;
-            r.ScoreTotal += it.Score;
-            if (it.Unlocked) { r.Unlocked++; r.Score += it.Score; }
-        }
+        Finish(r);
         // Unlocked first (newest first), then locked.
         r.Items = r.Items.OrderByDescending(i => i.Unlocked).ThenByDescending(i => i.UnlockedAt).ToList();
         lock (Cache) Cache[key] = r;

@@ -1107,6 +1107,8 @@ public sealed class LauncherCore
             profile = Settings.SteamProfile ?? "";
             key = Settings.XblKey;
         }
+        // Ironite games first: read straight from the files the games keep up to date.
+        var ironite = IroniteAchievements();
         using var sem = new SemaphoreSlim(4);
         var results = await Task.WhenAll(games.Select(async cg =>
         {
@@ -1114,7 +1116,15 @@ public sealed class LauncherCore
             try { return await AchievementService.ForGameAsync(cg, profile, key, force); }
             finally { sem.Release(); }
         }));
-        return results.Where(r => r != null).Select(r => r!).ToList();
+        return ironite.Concat(results.Where(r => r != null).Select(r => r!)).ToList();
+    }
+
+    /// <summary>Achievements of every Ironite game in the catalog that has shared some (played at least once).</summary>
+    public List<AchievementResult> IroniteAchievements()
+    {
+        List<string> ids;
+        lock (_mu) ids = Catalog.Games.Where(g => !g.IsLocal).Select(g => g.Id).ToList();
+        return ids.Select(AchievementService.Ironite).Where(r => r != null).Select(r => r!).ToList();
     }
 
     /// <summary>Suggests where a game's achievements come from.</summary>

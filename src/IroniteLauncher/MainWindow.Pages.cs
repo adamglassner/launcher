@@ -50,29 +50,17 @@ public partial class MainWindow
 
     private List<AchievementResult>? _ach;
     private readonly HashSet<string> _achOpen = new();
+    private readonly HashSet<string> _achClosed = new(); // Ironite games are open unless closed
     private readonly StackPanel _achBody = new();
 
     private async Task RenderAchievementsAsync(bool refresh)
     {
-        PageStart("Achievements", "Achievements from Steam and Xbox for your non-Ironite games, all in one place.");
-        var soon = new Border
-        {
-            BorderBrush = Res("Line"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(14, 10, 14, 10),
-            Margin = new Thickness(0, 16, 0, 18), MaxWidth = 860, HorizontalAlignment = HorizontalAlignment.Left,
-        };
-        var sp = new DockPanel();
-        var pill = Pill("COMING SOON", "soon");
-        pill.Margin = new Thickness(0, 0, 10, 0);
-        DockPanel.SetDock(pill, Dock.Left);
-        sp.Children.Add(pill);
-        sp.Children.Add(Muted("Achievements for Ironite games are on the way. They'll arrive in a launcher update, so there's nothing you need to do.").Also(t => t.VerticalAlignment = VerticalAlignment.Center));
-        soon.Child = sp;
-        _page.Children.Add(soon);
+        PageStart("Achievements", "Your Ironite games’ achievements, plus Steam and Xbox achievements for your other games, all in one place.");
         _page.Children.Add(_achBody);
         if (_ach == null || refresh)
         {
             _achBody.Children.Clear();
-            _achBody.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 20, 0, 20), Children = { Spinner(), Muted("Loading achievements from Steam and Xbox…") } });
+            _achBody.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 20, 0, 20), Children = { Spinner(), Muted("Loading achievements…") } });
         }
         else DrawAchievements();
         try { _ach = await Core.AchievementsAsync(refresh); }
@@ -88,10 +76,36 @@ public partial class MainWindow
     private void DrawAchievements()
     {
         _achBody.Children.Clear();
-        var linked = _ach ?? new();
+        var all = _ach ?? new();
+        var ironite = all.Where(r => r.Source == "ironite" && Game(r.Id) != null).ToList();
+        var linked = all.Where(r => r.Source != "ironite" && Game(r.Id) != null).ToList();
+
+        // ---- Ironite games
+        var tot = all.Where(r => r.Error == null).Sum(r => r.Total);
+        var got = all.Where(r => r.Error == null).Sum(r => r.Unlocked);
+        var sum = new DockPanel { MaxWidth = 860, HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 14, 0, 12) };
+        var refresh = Btn("⟳  Refresh", "GhostButton", () => _ = RenderAchievementsAsync(true), small: true);
+        DockPanel.SetDock(refresh, Dock.Right);
+        sum.Children.Add(refresh);
+        var st = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Foreground = Res("Muted") };
+        if (tot > 0)
+        {
+            st.Inlines.Add(new System.Windows.Documents.Run(got.ToString()) { FontSize = 18, FontWeight = FontWeights.Bold, FontFamily = Display, Foreground = Res("Text") });
+            st.Inlines.Add(new System.Windows.Documents.Run($"  of {tot} achievements unlocked across {Count(ironite.Count + linked.Count)}"));
+        }
+        sum.Children.Add(st);
+        _achBody.Children.Add(sum);
+
+        _achBody.Children.Add(SectionHead("IRONITE GAMES"));
+        if (ironite.Count == 0)
+            _achBody.Children.Add(Muted("Ironite games show their achievements here once you’ve played them. Solar Siege has them from version 1.4.0.")
+                .Also(t => { t.Margin = new Thickness(0, 0, 0, 18); t.TextWrapping = TextWrapping.Wrap; t.MaxWidth = 860; t.HorizontalAlignment = HorizontalAlignment.Left; }));
+        foreach (var r in ironite) _achBody.Children.Add(AchCard(r));
+
+        // ---- Steam and Xbox, for the player's own games
+        _achBody.Children.Add(SectionHead("STEAM & XBOX").Also(t => t.Margin = new Thickness(0, 18, 0, 10)));
         var (profile, key) = Core.AchievementAccounts();
         var (sid, sname) = AchievementService.DetectSteamUser();
-
         var accounts = new AutoGrid { MinItemWidth = 300, Gap = 12, MaxWidth = 860, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 18) };
         UIElement steamWho = profile.Length > 0 ? T(Regex.Replace(profile, @"^https?://(www\.)?steamcommunity\.com/", "", RegexOptions.IgnoreCase), 13).Also(t => t.ToolTip = profile)
             : sname.Length > 0 ? new TextBlock { FontSize = 13, Foreground = Res("Text"), TextTrimming = TextTrimming.CharacterEllipsis, Inlines = { new System.Windows.Documents.Run(sname + " "), new System.Windows.Documents.Run("(signed in to Steam on this PC)") { Foreground = Res("Muted") } } }
@@ -108,62 +122,79 @@ public partial class MainWindow
             _achBody.Children.Add(Empty("No games linked yet", "Open one of your non-Ironite games, choose Edit details, and pick where its achievements come from (Steam or Xbox). Then they'll show up here."));
             return;
         }
-        var tot = linked.Sum(r => r.Total);
-        var got = linked.Sum(r => r.Unlocked);
-        var sum = new DockPanel { MaxWidth = 860, HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 6, 0, 12) };
-        var refresh = Btn("⟳  Refresh", "GhostButton", () => _ = RenderAchievementsAsync(true), small: true);
-        DockPanel.SetDock(refresh, Dock.Right);
-        sum.Children.Add(refresh);
-        var st = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Foreground = Res("Muted") };
-        st.Inlines.Add(new System.Windows.Documents.Run(got.ToString()) { FontSize = 18, FontWeight = FontWeights.Bold, FontFamily = Display, Foreground = Res("Text") });
-        st.Inlines.Add(new System.Windows.Documents.Run($"  of {tot} achievements unlocked across {Count(linked.Count)}"));
-        sum.Children.Add(st);
-        _achBody.Children.Add(sum);
+        foreach (var r in linked) _achBody.Children.Add(AchCard(r));
+    }
 
-        foreach (var r in linked)
+    private static TextBlock SectionHead(string text) =>
+        T(Track(text, 2), 12, Res("Muted"), FontWeights.Bold, true).Also(t => t.Margin = new Thickness(0, 4, 0, 10));
+
+    /// <summary>Opens the Achievements page with one game's list showing.</summary>
+    internal void ShowAchievements(string id)
+    {
+        _achClosed.Remove(id);
+        _achOpen.Add(id);
+        Go("achievements");
+    }
+
+    private bool AchIsOpen(AchievementResult r) => r.Source == "ironite" ? !_achClosed.Contains(r.Id) : _achOpen.Contains(r.Id);
+
+    private UIElement AchCard(AchievementResult r)
+    {
+        var g = Game(r.Id)!;
+        var pct = r.Total > 0 ? (int)Math.Round(r.Unlocked * 100.0 / r.Total) : 0;
+        var open = AchIsOpen(r);
+        var src = r.Source switch { "xbox" => "Xbox", "ironite" => "Ironite", _ => "Steam" };
+        var head = new DockPanel { Margin = new Thickness(14, 10, 14, 10) };
+        var cv = new Border { Width = 44, Height = 55, CornerRadius = new CornerRadius(6), ClipToBounds = true, Margin = new Thickness(0, 0, 14, 0), Child = Cover(g, false, 18) };
+        RoundClip(cv, 6);
+        DockPanel.SetDock(cv, Dock.Left);
+        head.Children.Add(cv);
+        if (r.Error == null)
         {
-            var g = Game(r.Id);
-            if (g == null) continue;
-            var pct = r.Total > 0 ? (int)Math.Round(r.Unlocked * 100.0 / r.Total) : 0;
-            var open = _achOpen.Contains(r.Id);
-            var src = r.Source == "xbox" ? "Xbox" : "Steam";
-            var head = new DockPanel { Margin = new Thickness(14, 10, 14, 10) };
-            var cv = new Border { Width = 44, Height = 55, CornerRadius = new CornerRadius(6), ClipToBounds = true, Margin = new Thickness(0, 0, 14, 0), Child = Cover(g, false, 18) };
-            RoundClip(cv, 6);
-            DockPanel.SetDock(cv, Dock.Left);
-            head.Children.Add(cv);
-            if (r.Error == null)
-            {
-                var chev = T(open ? "▾" : "▸", 14, Res("Muted")).Also(t => { t.Width = 14; t.VerticalAlignment = VerticalAlignment.Center; });
-                DockPanel.SetDock(chev, Dock.Right);
-                head.Children.Add(chev);
-                var p = T(pct + "%", 16, B("#f3d27a"), FontWeights.Bold, true).Also(t => { t.Margin = new Thickness(14, 0, 10, 0); t.VerticalAlignment = VerticalAlignment.Center; });
-                DockPanel.SetDock(p, Dock.Right);
-                head.Children.Add(p);
-            }
-            var info = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            info.Children.Add(T(g.Title, 15, weight: FontWeights.SemiBold, display: true));
-            info.Children.Add(T(src + (r.Error != null ? "" : $" · {r.Unlocked} of {r.Total}" + (r.ScoreTotal > 0 ? $" · {r.Score} / {r.ScoreTotal} G" : "")), 12, Res("Muted")).Also(t => t.Margin = new Thickness(0, 4, 0, 4)));
-            if (r.Error != null) info.Children.Add(T(Sentence(r.Error), 12.5, B("#f0b1aa"), wrap: TextWrapping.Wrap));
-            else info.Children.Add(new Border { MaxWidth = 420, HorizontalAlignment = HorizontalAlignment.Stretch, Child = StretchBar(pct) });
-            head.Children.Add(info);
-            var headBtn = new Button { Style = Style("BareButton"), Content = new Border { Background = Brushes.Transparent, Child = head } };
-            var id = r.Id;
-            headBtn.Click += (_, _) => { if (!_achOpen.Remove(id)) _achOpen.Add(id); DrawAchievements(); };
-            var card = new StackPanel();
-            card.Children.Add(headBtn);
-            if (open && r.Error == null)
-            {
-                var items = new AutoGrid { MinItemWidth = 360, Gap = 4, Margin = new Thickness(10, 6, 10, 10) };
-                foreach (var it in r.Items) items.Children.Add(AchievementItem(it));
-                card.Children.Add(new Border { BorderBrush = Res("Line"), BorderThickness = new Thickness(0, 1, 0, 0), Child = items });
-            }
-            _achBody.Children.Add(new Border
-            {
-                BorderBrush = Res("Line"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Margin = new Thickness(0, 0, 0, 10),
-                MaxWidth = 860, HorizontalAlignment = HorizontalAlignment.Stretch, Background = Res("Panel"), Child = card,
-            });
+            var chev = T(open ? "▾" : "▸", 14, Res("Muted")).Also(t => { t.Width = 14; t.VerticalAlignment = VerticalAlignment.Center; });
+            DockPanel.SetDock(chev, Dock.Right);
+            head.Children.Add(chev);
+            var p = T(pct + "%", 16, B("#f3d27a"), FontWeights.Bold, true).Also(t => { t.Margin = new Thickness(14, 0, 10, 0); t.VerticalAlignment = VerticalAlignment.Center; });
+            DockPanel.SetDock(p, Dock.Right);
+            head.Children.Add(p);
         }
+        var info = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        info.Children.Add(T(g.Title, 15, weight: FontWeights.SemiBold, display: true));
+        info.Children.Add(T(src + (r.Error != null ? "" : $" · {r.Unlocked} of {r.Total}" + (r.ScoreTotal > 0 ? $" · {r.Score} / {r.ScoreTotal} G" : "")), 12, Res("Muted")).Also(t => t.Margin = new Thickness(0, 4, 0, 4)));
+        if (r.Error != null) info.Children.Add(T(Sentence(r.Error), 12.5, B("#f0b1aa"), wrap: TextWrapping.Wrap));
+        else info.Children.Add(new Border { MaxWidth = 420, HorizontalAlignment = HorizontalAlignment.Stretch, Child = StretchBar(pct) });
+        head.Children.Add(info);
+        var headBtn = new Button { Style = Style("BareButton"), Content = new Border { Background = Brushes.Transparent, Child = head } };
+        var id = r.Id;
+        var ironite = r.Source == "ironite";
+        headBtn.Click += (_, _) =>
+        {
+            if (ironite) { if (!_achClosed.Remove(id)) _achClosed.Add(id); }
+            else if (!_achOpen.Remove(id)) _achOpen.Add(id);
+            DrawAchievements();
+        };
+        var card = new StackPanel();
+        card.Children.Add(headBtn);
+        if (open && r.Error == null)
+        {
+            var body = new StackPanel { Margin = new Thickness(10, 6, 10, 10) };
+            // Ironite games list theirs by category, in the game's own order
+            foreach (var grp in ironite ? r.Items.GroupBy(i => i.Category ?? "") : r.Items.GroupBy(_ => ""))
+            {
+                if (grp.Key.Length > 0)
+                    body.Children.Add(T(Track(grp.Key.ToUpperInvariant(), 1) + $"   {grp.Count(i => i.Unlocked)} / {grp.Count()}", 11, B("#f3d27a"), FontWeights.Bold, true)
+                        .Also(t => t.Margin = new Thickness(6, 10, 0, 4)));
+                var items = new AutoGrid { MinItemWidth = 360, Gap = 4 };
+                foreach (var it in grp) items.Children.Add(AchievementItem(it));
+                body.Children.Add(items);
+            }
+            card.Children.Add(new Border { BorderBrush = Res("Line"), BorderThickness = new Thickness(0, 1, 0, 0), Child = body });
+        }
+        return new Border
+        {
+            BorderBrush = Res("Line"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Margin = new Thickness(0, 0, 0, 10),
+            MaxWidth = 860, HorizontalAlignment = HorizontalAlignment.Stretch, Background = Res("Panel"), Child = card,
+        };
     }
 
     private static FrameworkElement StretchBar(int pct)
@@ -220,11 +251,12 @@ public partial class MainWindow
                 bmp.BeginInit();
                 bmp.UriSource = uri;
                 bmp.DecodePixelWidth = 80;
+                if (uri.IsFile) bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad; // don't keep the game's file open
                 bmp.EndInit();
             }
             catch { /* bad link */ }
             ImageSource src = bmp;
-            if (!it.Unlocked)
+            if (!it.Unlocked && !uri.IsFile) // Ironite games provide their own locked (grey) icons
             {
                 // Grey for locked achievements (once the picture has downloaded).
                 var img0 = new Image { Width = 40, Height = 40, Stretch = Stretch.UniformToFill, Source = bmp };
@@ -239,6 +271,15 @@ public partial class MainWindow
         var text = new StackPanel { Margin = new Thickness(10, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center };
         text.Children.Add(T(it.Name, 13.5, weight: FontWeights.SemiBold, wrap: TextWrapping.Wrap));
         if (!string.IsNullOrEmpty(it.Description)) text.Children.Add(T(it.Description, 12, Res("Muted"), wrap: TextWrapping.Wrap));
+        if (!it.Unlocked && it.Target > 1)
+        {
+            var pr = new DockPanel { Margin = new Thickness(0, 5, 0, 0), MaxWidth = 260, HorizontalAlignment = HorizontalAlignment.Left };
+            var n = T($"{Math.Min(it.Progress, it.Target)} / {it.Target}", 11, B("#f3d27a"), FontWeights.SemiBold).Also(t => t.Margin = new Thickness(8, 0, 0, 0));
+            DockPanel.SetDock(n, Dock.Right);
+            pr.Children.Add(n);
+            pr.Children.Add(new Border { VerticalAlignment = VerticalAlignment.Center, Child = StretchBar((int)Math.Round(Math.Min(it.Progress, it.Target) * 100.0 / it.Target)) });
+            text.Children.Add(pr);
+        }
         Grid.SetColumn(text, 1);
         g.Children.Add(text);
         var when = T((it.Unlocked ? it.UnlockedAt > 0 ? Ago(it.UnlockedAt) : "Unlocked" : "Locked") + (it.Score > 0 ? $" · {it.Score} G" : ""), 11.5, it.Unlocked ? B("#8fe0b0") : Res("Muted"));

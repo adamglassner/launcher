@@ -193,6 +193,7 @@ public partial class MainWindow
             notes.Children.Add(Box(new ScrollViewer { MaxHeight = 180, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = n }));
         }
         m.Notes = notes;
+        if (!g.IsLocal && AchievementService.Ironite(id) is { Error: null, Total: > 0 } ach) notes.Children.Add(Box(AchSummary(ach)));
         if (s.PlayCount > 0) AddSessions(notes, id);
 
         var meta = new WrapPanel { Margin = new Thickness(0, 0, 0, 18) };
@@ -242,6 +243,46 @@ public partial class MainWindow
         SetPref(g.Id, hidden: !s.Hidden);
         ShowToast(s.Hidden ? $"{g.Title} is back in the Library." : $"{g.Title} is hidden. Tick Show hidden to see it again.");
     });
+
+    /// <summary>An Ironite game's achievements in its details: how many, the latest ones, and a link to the full list.</summary>
+    private UIElement AchSummary(AchievementResult ach)
+    {
+        var p = new StackPanel();
+        var pct = (int)Math.Round(ach.Unlocked * 100.0 / ach.Total);
+        p.Children.Add(NotesHead("Achievements", $"{ach.Unlocked} of {ach.Total} unlocked"));
+        p.Children.Add(new Border { MaxWidth = 420, HorizontalAlignment = HorizontalAlignment.Left, Width = 420, Margin = new Thickness(0, 2, 0, 10), Child = StretchBar(pct) });
+        var recent = ach.Items.Where(i => i.Unlocked).OrderByDescending(i => i.UnlockedAt).Take(8).ToList();
+        if (recent.Count > 0)
+        {
+            var row = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
+            foreach (var it in recent)
+            {
+                FrameworkElement icon = new Border { Width = 40, Height = 40, CornerRadius = new CornerRadius(20), Background = Res("InputBg") };
+                if (!string.IsNullOrEmpty(it.Icon) && Uri.TryCreate(it.Icon, UriKind.Absolute, out var uri))
+                {
+                    try
+                    {
+                        var bmp = new System.Windows.Media.Imaging.BitmapImage();
+                        bmp.BeginInit();
+                        bmp.UriSource = uri;
+                        bmp.DecodePixelWidth = 80;
+                        bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                        bmp.EndInit();
+                        icon = new Image { Width = 40, Height = 40, Source = bmp };
+                    }
+                    catch { /* missing icon: keep the plain circle */ }
+                }
+                icon.Margin = new Thickness(0, 0, 8, 0);
+                icon.ToolTip = it.Name + (string.IsNullOrEmpty(it.Description) ? "" : "\n" + it.Description);
+                row.Children.Add(icon);
+            }
+            p.Children.Add(row);
+        }
+        else p.Children.Add(Muted("None unlocked yet.", 12.5).Also(t => t.Margin = new Thickness(0, 0, 0, 8)));
+        var id = ach.Id;
+        p.Children.Add(Link("See all achievements", () => { CloseModal(); ShowAchievements(id); }));
+        return p;
+    }
 
     /// <summary>A game's recent play sessions, under its details.</summary>
     private void AddSessions(StackPanel notes, string id)

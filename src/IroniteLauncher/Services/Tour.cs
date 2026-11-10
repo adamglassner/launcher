@@ -54,6 +54,7 @@ public static class Tour
             ["futureSetting"] = "kept",
         };
         File.WriteAllText(AppPaths.Settings, settings.ToJsonString());
+        await WriteSampleAchievementsAsync(Path.Combine(data, "achievements"), now);
 
         var core = App.Core;
         MainWindow? w = null;
@@ -126,6 +127,9 @@ public static class Tour
             w.Details("hearts");
             await Settle();
             Shot(w, dir, "08-details-not-installed");
+            w.Details("solarsiege");
+            await Settle(1500);
+            Shot(w, dir, "08b-details-achievements");
             w.Details("custom-a1a1a1a1a1a1");
             await Settle();
             Shot(w, dir, "09-details-own-game");
@@ -169,6 +173,53 @@ public static class Tour
         ["playCount"] = count, ["playSeconds"] = secs, ["lastPlayed"] = last,
         ["sessions"] = new JsonArray(sessions.Select(s => (JsonNode)new JsonObject { ["start"] = s.Start, ["secs"] = s.Secs }).ToArray()),
     };
+
+    /// <summary>
+    /// A Solar Siege achievements file like the game writes, with its real medal icons from the game's repository,
+    /// so the Achievements page and Solar Siege's details have something to show.
+    /// </summary>
+    private static async Task WriteSampleAchievementsAsync(string dir, long now)
+    {
+        AchievementService.IroniteDir = dir;
+        var icons = Path.Combine(dir, "solarsiege");
+        Directory.CreateDirectory(icons);
+        var list = new (string Id, string Name, string Desc, string Cat, bool Got, int Prog, int Target, bool Hidden)[]
+        {
+            ("first_contact", "First Contact", "Clear Mercury.", "Campaign", true, 1, 1, false),
+            ("homeworld", "Homeworld Secured", "Clear Earth.", "Campaign", true, 1, 1, false),
+            ("edge_of_darkness", "The Edge of Darkness", "Reach Pluto.", "Campaign", false, 0, 1, false),
+            ("sunrise", "Sunrise", "Defeat Erebus and save the solar system.", "Campaign", false, 0, 1, false),
+            ("ghostbuster", "Ghostbuster", "Destroy 100 Wraiths.", "Combat", false, 37, 100, false),
+            ("saucer_hunter", "Saucer Hunter", "Shoot down 10 bonus saucers.", "Combat", true, 10, 10, false),
+            ("arsenal", "Arsenal", "Have all 8 timed power-ups active at once.", "Power-Ups", true, 1, 1, false),
+            ("collector", "Collector", "Pick up every type of power-up.", "Power-Ups", false, 9, 11, false),
+            ("squadron", "Squadron", "Clear a planet with 4 pilots.", "Multiplayer", false, 0, 1, false),
+            ("turtle", "Turtle", "Clear a planet without leaving the cover of one shield.", "Secret", false, 0, 1, true),
+            ("lore_reader", "Lore Reader", "Watch the whole story without skipping.", "Secret", true, 1, 1, true),
+        };
+        using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd(GitHubService.UserAgent);
+        foreach (var n in list.SelectMany(a => new[] { a.Id, a.Id + "_locked" }).Append("hidden"))
+        {
+            try
+            {
+                var bytes = await http.GetByteArrayAsync($"https://raw.githubusercontent.com/adamglassner/Solar-Siege/main/assets/sprites/achievements/{n}.png");
+                await File.WriteAllBytesAsync(Path.Combine(icons, n + ".png"), bytes);
+            }
+            catch { /* the page falls back to plain stars */ }
+        }
+        var arr = new JsonArray();
+        var i = 0;
+        foreach (var a in list)
+            arr.Add(new JsonObject
+            {
+                ["id"] = a.Id, ["name"] = a.Name, ["description"] = a.Desc, ["category"] = a.Cat, ["hidden"] = a.Hidden, ["unlocked"] = a.Got,
+                ["unlocked_at"] = a.Got ? now - 3600 * (++i) : 0, ["progress"] = a.Prog, ["target"] = a.Target,
+                ["icon"] = $"solarsiege/{a.Id}.png", ["icon_locked"] = $"solarsiege/{a.Id}_locked.png",
+            });
+        var file = new JsonObject { ["schema"] = 1, ["game"] = "solarsiege", ["title"] = "Solar Siege", ["version"] = "1.4.0", ["updated"] = now, ["icon_hidden"] = "solarsiege/hidden.png", ["achievements"] = arr };
+        await File.WriteAllTextAsync(Path.Combine(dir, "solarsiege.json"), file.ToJsonString());
+    }
 
     private static async Task Until(Func<bool> done, int seconds)
     {

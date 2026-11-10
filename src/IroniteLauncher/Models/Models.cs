@@ -230,6 +230,11 @@ public sealed class Achievement
     public bool Unlocked { get; set; }
     public long UnlockedAt { get; set; }
     public int Score { get; set; }
+    /// <summary>Ironite games: a counting achievement's progress ("37 of 100"); Target is 1 for the others.</summary>
+    public int Progress { get; set; }
+    public int Target { get; set; } = 1;
+    public string? Category { get; set; }
+    public bool Hidden { get; set; }
 }
 
 public sealed class AchievementResult

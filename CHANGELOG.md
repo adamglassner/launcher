@@ -4,6 +4,17 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.1.0] - 2026-11-10
+
+### Added
+- Achievements for Ironite games. The Achievements page now starts with your Ironite games, listed by category with each medal, the date you unlocked it, and progress bars for the counting ones ("37 / 100"). Secret achievements stay secret until you unlock them in the game.
+- Solar Siege is the first, with 54 achievements from version 1.4.0. Other Ironite games will appear on their own when they add achievements, without a launcher update.
+- An Achievements box in an Ironite game's details, with how many you've unlocked, your latest medals, and a link to the full list.
+- Achievements count even if you played the game from somewhere else, like the Solar Siege CD.
+
+### Changed
+- The Achievements page no longer says achievements for Ironite games are coming soon. Steam and Xbox achievements for your other games are listed under them, as before.
+
 ## [3.0.0] - 2026-11-10
 
 ### Changed

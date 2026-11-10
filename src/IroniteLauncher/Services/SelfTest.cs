@@ -78,6 +78,39 @@ public static class SelfTest
             Check("Steam profile link", AchievementService.SteamProfilePath("https://steamcommunity.com/id/someone/") == "id/someone");
             Check("Steam ID64", AchievementService.SteamProfilePath("76561197960287930") == "profiles/76561197960287930");
             Check("Steam bad text", AchievementService.SteamProfilePath("not a profile!") == "");
+
+            // ---- Ironite games' achievements (the file Solar Siege 1.4.0+ writes) ----
+            {
+                var achDir = Path.Combine(temp, "achievements");
+                Directory.CreateDirectory(Path.Combine(achDir, "solarsiege"));
+                File.WriteAllBytes(Path.Combine(achDir, "solarsiege", "sunrise.png"), Convert.FromBase64String(
+                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="));
+                File.WriteAllText(Path.Combine(achDir, "solarsiege.json"), """
+                {"schema":1,"game":"solarsiege","title":"Solar Siege","updated":1762790000,"icon_hidden":"solarsiege/hidden.png","achievements":[
+                  {"id":"sunrise","name":"Sunrise","description":"Defeat Erebus.","category":"Campaign","hidden":false,"unlocked":true,"unlocked_at":1762790000,"progress":1,"target":1,"icon":"solarsiege/sunrise.png","icon_locked":"solarsiege/sunrise_locked.png"},
+                  {"id":"ghostbuster","name":"Ghostbuster","description":"Destroy 100 Wraiths.","category":"Combat","hidden":false,"unlocked":false,"unlocked_at":0,"progress":37,"target":100,"icon":"solarsiege/ghostbuster.png","icon_locked":"solarsiege/ghostbuster_locked.png"},
+                  {"id":"turtle","name":"Turtle","description":"Clear a planet without leaving one shield.","category":"Secret","hidden":true,"unlocked":false,"unlocked_at":0,"progress":0,"target":1,"icon":"solarsiege/turtle.png","icon_locked":"solarsiege/turtle_locked.png"},
+                  {"id":"evil","name":"Escapes","description":"","category":"Secret","hidden":false,"unlocked":true,"unlocked_at":1,"icon":"../../outside.png"}
+                ]}
+                """);
+                var was = AchievementService.IroniteDir;
+                AchievementService.IroniteDir = achDir;
+                try
+                {
+                    var r = AchievementService.Ironite("solarsiege");
+                    Check("Reads an Ironite game's achievements", r is { Error: null, Total: 4, Unlocked: 2, Source: "ironite" }, r == null ? "null" : $"{r.Unlocked}/{r.Total} {r.Error}");
+                    var sun = r?.Items.FirstOrDefault(i => i.Name == "Sunrise");
+                    Check("Ironite achievement icon resolves to the file", sun?.Icon is { } ic && new Uri(ic).IsFile && File.Exists(new Uri(ic).LocalPath), sun?.Icon ?? "none");
+                    var gb = r?.Items.FirstOrDefault(i => i.Name == "Ghostbuster");
+                    Check("Ironite counting achievement keeps its progress", gb is { Progress: 37, Target: 100, Unlocked: false });
+                    Check("Secret Ironite achievements stay secret", r?.Items.Any(i => i.Name == "Turtle") == false && r?.Items.Any(i => i.Name == "Secret achievement") == true);
+                    Check("Ironite icon paths can't leave the folder", r?.Items.FirstOrDefault(i => i.Name == "Escapes")?.Icon == null);
+                    Check("A game without a file has no Ironite achievements", AchievementService.Ironite("hearts") == null);
+                    File.WriteAllText(Path.Combine(achDir, "broken.json"), "{ not json");
+                    Check("A broken file shows an error, not a crash", AchievementService.Ironite("broken")?.Error != null);
+                }
+                finally { AchievementService.IroniteDir = was; }
+            }
             Check("Safe file name", Platform.SafeFileName("Gin: Rummy?") == "Gin Rummy");
 
             var rel = new GhRelease

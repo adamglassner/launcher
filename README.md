@@ -13,7 +13,7 @@ exe, and installed with **Inno Setup 6**.
 - Install, update (automatically, every 30 minutes) and uninstall games from GitHub Releases, one download at a time
 - Play tracking: opens, play time, sessions (also for games started outside the launcher), weekly Stats page
 - Non-Ironite games: add any .exe or Xbox / Microsoft Store game, with categories, details and cover art
-- Steam and Xbox (OpenXBL) achievements for those games
+- Achievements for Ironite games (read from the files the games write), plus Steam and Xbox (OpenXBL) achievements for your own games
 - Desktop shortcuts that start a game through the launcher
 - Launcher updates like Bytehawk Launcher: download the new setup, run it silently, reopen
 
@@ -26,6 +26,7 @@ exe, and installed with **Inno Setup 6**.
 | `%APPDATA%\Ironite\Launcher\WebGames\` | browser profiles (saves) for web games |
 | `%LOCALAPPDATA%\Ironite\Launcher\Games\` | downloaded games |
 | `%LOCALAPPDATA%\Ironite\Launcher\releases.json` | cached GitHub releases and game catalog |
+| `%APPDATA%\Ironite\Achievements\<game id>.json` | each Ironite game's achievements, written by the game (icons in `<game id>\`) |
 | `%TEMP%\IroniteLauncher.log` | log |
 
 These are the same files launcher 2.x used, so updating from 2.x keeps everything.
