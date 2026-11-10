@@ -15,6 +15,9 @@ on:
 permissions:
   contents: write
 
+env:
+  IRONITE_GITHUB_TOKEN: ${{ github.token }}
+
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: false

@@ -139,6 +139,9 @@ public sealed class GitHubService
         req.Headers.Accept.ParseAdd("application/vnd.github+json");
         req.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
         if (!string.IsNullOrEmpty(etag)) req.Headers.TryAddWithoutValidation("If-None-Match", etag);
+        // CI runs the tests with its own token (the shared runners use up the unauthenticated allowance).
+        if (Environment.GetEnvironmentVariable("IRONITE_GITHUB_TOKEN") is { Length: > 0 } token)
+            req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         using var resp = await Http.SendAsync(req);
         var body = await resp.Content.ReadAsStringAsync();
 
