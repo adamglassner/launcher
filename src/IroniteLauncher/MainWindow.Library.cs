@@ -30,7 +30,7 @@ public partial class MainWindow
         new("solarsiege", "FEATURED · ARCADE", "SOLAR SIEGE", "DEFEND THE SOLAR SYSTEM"),
     };
 
-    private readonly TextBox _search = new() { MinWidth = 220, Padding = new Thickness(38, 10, 34, 10), FontSize = 14 };
+    private readonly TextBox _search = new() { MinWidth = 220, Height = 40, Padding = new Thickness(38, 0, 34, 0), FontSize = 14 };
     private readonly ComboBox _sort = new() { Width = 170, Margin = new Thickness(12, 0, 0, 0), Visibility = Visibility.Collapsed, ToolTip = "Sort" };
     private readonly CheckBox _showHid = new() { Margin = new Thickness(12, 0, 0, 0), Visibility = Visibility.Collapsed };
     private readonly Grid _hero = new() { MinHeight = 320, Margin = new Thickness(0, 0, 0, 30) };
@@ -324,7 +324,12 @@ public partial class MainWindow
                 meta.Children.Add(MetaText(g.Demo ? "Free demo" : "Free"));
                 if (s.Size > 0) meta.Children.Add(MetaText(Size(s.Size)));
             }
-            meta.Children.Add(Plats(g, true));
+            foreach (var chip in Plats(g, true).Children.Cast<UIElement>().ToList())
+            {
+                ((Panel)((FrameworkElement)chip).Parent).Children.Remove(chip);
+                ((FrameworkElement)chip).VerticalAlignment = VerticalAlignment.Top;
+                meta.Children.Add(chip);
+            }
             info.Children.Add(meta);
             slide.Children.Add(info);
             _slides.Add(slide);

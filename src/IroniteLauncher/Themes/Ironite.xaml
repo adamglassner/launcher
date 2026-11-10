@@ -187,8 +187,17 @@
     <Setter Property="SelectionBrush" Value="{StaticResource Ember}" />
     <Setter Property="BorderBrush" Value="{StaticResource Line}" />
     <Setter Property="FontSize" Value="13.5" />
-    <Setter Property="Padding" Value="9,8" />
+    <Setter Property="Padding" Value="9,0" />
+    <Setter Property="Height" Value="38" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Style.Triggers>
+      <Trigger Property="AcceptsReturn" Value="True">
+        <Setter Property="Height" Value="Auto" />
+        <Setter Property="Padding" Value="9,8" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+      </Trigger>
+    </Style.Triggers>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="TextBox">
@@ -208,12 +217,14 @@
     <Setter Property="CaretBrush" Value="{StaticResource Text}" />
     <Setter Property="BorderBrush" Value="{StaticResource Line}" />
     <Setter Property="FontSize" Value="13.5" />
-    <Setter Property="Padding" Value="9,8" />
+    <Setter Property="Padding" Value="9,0" />
+    <Setter Property="Height" Value="38" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="PasswordBox">
           <Border x:Name="B" CornerRadius="8" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
-            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" />
+            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="B" Property="BorderBrush" Value="{StaticResource Ember2}" /></Trigger>

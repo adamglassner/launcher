@@ -5,7 +5,7 @@
         WindowStartupLocation="CenterScreen" Background="{StaticResource Bg}" Foreground="{StaticResource Text}"
         FontFamily="{StaticResource Body}" FontSize="14" Icon="pack://application:,,,/Assets/icon.ico"
         UseLayoutRounding="True" TextOptions.TextFormattingMode="Ideal">
-  <Grid x:Name="Root">
+  <Grid x:Name="Root" Background="{StaticResource Bg}">
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="232" />
       <ColumnDefinition Width="*" />

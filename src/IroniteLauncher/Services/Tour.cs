@@ -98,7 +98,7 @@ public static class Tour
             if (k.Installed)
             {
                 core.Launch("klondike");
-                await Task.Delay(6000);
+                await Task.Delay(10000);
                 w.Refresh(force: true);
                 await Settle();
                 Shot(w, dir, "06-playing");
