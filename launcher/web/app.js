@@ -159,22 +159,37 @@
   }
 
   /* ---------- launcher update + update status ---------- */
+  // Launcher updates work like Bytehawk Launcher's: a banner offers the new
+  // version; Update now downloads its setup (with progress, and Cancel), then
+  // runs it showing only its progress window. The launcher closes, setup
+  // installs the update and opens the launcher again.
+  let bannerHidden = '';
   function renderBanner() {
     const u = state.launcherUpdate, b = $('#lbanner');
-    if (!u) { b.classList.add('hidden'); return; }
+    if (!u || (bannerHidden === u.version && !u.downloading && !u.error)) { b.classList.add('hidden'); return; }
     b.classList.remove('hidden');
-    const btn = u.downloading
-      ? `<button class="btn play small" disabled>Downloading <span class="bar"><i style="width:${u.progress}%"></i></span> ${u.progress}%</button>`
-      : `<button class="btn play small" data-self>⟳&nbsp; Update now</button>`;
-    b.innerHTML = `<div class="lb-txt"><b>Ironite Launcher ${esc(u.version)} is available</b>
-      <span>${u.error ? esc(u.error) : u.downloading ? 'Downloading the update. The launcher will close, update and open again by itself (Windows asks for permission first).' : `You have ${esc(state.version)}. The launcher closes, updates and opens again by itself.`}</span></div>
-      <div class="actions">${btn}<button class="btn ghost small" data-notes>What's new</button></div>`;
-    const s = b.querySelector('[data-self]');
-    if (s) s.onclick = async () => {
-      try { const r = await api('/api/selfupdate', {}); state.launcherUpdate = r.launcherUpdate; renderBanner(); }
+    let title = `Ironite Launcher ${esc(u.version)} is available`, line = `You have ${esc(state.version)}.`, btns;
+    if (u.installing) {
+      title = `Installing Ironite Launcher ${esc(u.version)}…`;
+      line = 'The launcher will close, and the installer will open it again when it’s done. If Windows asks for permission, click Yes.';
+      btns = '';
+    } else if (u.downloading) {
+      title = `Downloading Ironite Launcher ${esc(u.version)}…`;
+      line = `<span class="bar lbbar"><i style="width:${u.progress}%"></i></span> ${u.progress}%` + (u.total ? ` · ${size(u.done)} of ${size(u.total)}` : '');
+      btns = '<button class="btn ghost small" data-cancel>Cancel</button>';
+    } else {
+      if (u.error) line = esc(u.error);
+      btns = `<button class="btn play small" data-self>⟳&nbsp; Update now</button><button class="btn ghost small" data-notes>Release notes</button><button class="lbx" data-dismiss title="Hide until next time">✕</button>`;
+    }
+    b.innerHTML = `<div class="lb-txt"><b>${title}</b><span>${line}</span></div><div class="actions">${btns}</div>`;
+    const on = (sel, fn) => { const el = b.querySelector(sel); if (el) el.onclick = fn; };
+    on('[data-self]', async () => {
+      try { if (u.error) await api('/api/dismiss', { id: 'launcher' }); const r = await api('/api/selfupdate', {}); state.launcherUpdate = r.launcherUpdate; renderBanner(); }
       catch (e) { toast(cap(e.message) + '.'); }
-    };
-    b.querySelector('[data-notes]').onclick = () => releaseDialog(`Ironite Launcher ${u.version}`, u.notes, u.url);
+    });
+    on('[data-cancel]', async () => { try { await api('/api/selfupdate/cancel', {}); } catch (e) { } });
+    on('[data-notes]', () => releaseDialog(`Ironite Launcher ${u.version}`, u.notes, u.url));
+    on('[data-dismiss]', () => { bannerHidden = u.version; renderBanner(); });
   }
   function renderCheck() {
     const el = $('#chk');
@@ -759,11 +774,15 @@
       for (const [id, g] of Object.entries(s.games)) {
         if (g.launchError && g.launchError !== (state.games[id] || {}).launchError) toast(g.launchError);
       }
-      const changed = JSON.stringify([s.games, s.launcherUpdate, s.autoUpdate]) !== JSON.stringify([state.games, state.launcherUpdate, state.autoUpdate]);
+      // Redraw only when something visible changed. A running game's play time
+      // ticks every second, so it counts in whole minutes here.
+      const sig = st => JSON.stringify([Object.entries(st.games || {}).map(([k, g]) => [k, Object.assign({}, g, { playSeconds: Math.floor((g.playSeconds || 0) / 60) })]), st.autoUpdate]);
+      const changed = sig(s) !== sig(state);
+      const lu = JSON.stringify(s.launcherUpdate) !== JSON.stringify(state.launcherUpdate);
       const chk = s.checking !== state.checking || s.lastCheck !== state.lastCheck || s.checkError !== state.checkError;
       state = s;
       if (changed) renderAll();
-      else { if (chk) renderCheck(); if (view === 'about') renderAbout(); }
+      else { if (lu) renderBanner(); if (chk) renderCheck(); if (view === 'about') renderAbout(); }
     } catch (e) {
       if (state.launcherUpdate && state.launcherUpdate.downloading) { // the launcher is restarting into the new version
         $('#lbanner').innerHTML = '<div class="lb-txt"><b>Updating Ironite Launcher…</b><span>It will open again in a moment.</span></div>';

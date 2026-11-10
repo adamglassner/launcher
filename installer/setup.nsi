@@ -55,7 +55,13 @@ VIAddVersionKey "LegalCopyright"  "Copyright (c) 2026 Ironite. All rights reserv
 
 !define MUI_WELCOMEPAGE_TITLE "Welcome to the ${PRODUCT} ${VERSION} setup"
 !define MUI_WELCOMEPAGE_TEXT "This will install Ironite Launcher on your computer.$\r$\n$\r$\nThe launcher downloads Ironite games and keeps them, and itself, up to date.$\r$\n$\r$\nClick Next to continue."
+; /AUTO (used by the launcher's updater, like Bytehawk's /SILENT): no questions,
+; just the progress window, which closes by itself when the update is installed.
+Var Auto
+
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfAuto
 !insertmacro MUI_PAGE_WELCOME
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfAuto
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !define MUI_FINISHPAGE_TITLE "Ready to play"
@@ -66,6 +72,7 @@ VIAddVersionKey "LegalCopyright"  "Copyright (c) 2026 Ironite. All rights reserv
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\CHANGELOG.txt"
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "Show the changelog"
 !define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfAuto
 !insertmacro MUI_PAGE_FINISH
 
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -73,7 +80,21 @@ VIAddVersionKey "LegalCopyright"  "Copyright (c) 2026 Ironite. All rights reserv
 
 !insertmacro MUI_LANGUAGE "English"
 
+Function SkipIfAuto
+  ${If} $Auto == 1
+    Abort ; skip this page
+  ${EndIf}
+FunctionEnd
+
 Function .onInit
+  StrCpy $Auto 0
+  ${GetParameters} $1
+  ClearErrors
+  ${GetOptions} $1 "/AUTO" $2
+  ${IfNot} ${Errors}
+    StrCpy $Auto 1
+    SetAutoClose true
+  ${EndIf}
   ${IfNot} ${RunningX64}
     MessageBox MB_ICONSTOP "${PRODUCT} requires 64-bit Windows 10 or 11."
     Abort
@@ -85,21 +106,20 @@ Function .onInit
   ${EndIf}
   ${If} $0 != ""
   ${AndIf} $0 != "${VERSION}"
-    ; The launcher's own updater runs setup silently (/S /relaunch): no questions.
+  ${AndIf} $Auto != 1
+    ; The launcher's own updater runs setup with /AUTO (or /S): no questions.
     MessageBox MB_OKCANCEL|MB_ICONINFORMATION "${PRODUCT} $0 is installed. Setup will update it to version ${VERSION}." /SD IDOK IDOK +2
     Abort
   ${EndIf}
 FunctionEnd
 
-; After a silent update started by the launcher, open the new launcher again.
+; After an update started by the launcher (/relaunch), open the new launcher again.
 Function .onInstSuccess
-  ${If} ${Silent}
-    ${GetParameters} $0
-    ClearErrors
-    ${GetOptions} $0 "/relaunch" $1
-    ${IfNot} ${Errors}
-      Call RunLauncher
-    ${EndIf}
+  ${GetParameters} $0
+  ClearErrors
+  ${GetOptions} $0 "/relaunch" $1
+  ${IfNot} ${Errors}
+    Call RunLauncher
   ${EndIf}
 FunctionEnd
 

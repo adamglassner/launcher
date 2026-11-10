@@ -302,3 +302,8 @@ h3.subcat .count{font:500 12px var(--body);letter-spacing:0;text-transform:none;
 .addform .achrow input{flex:1;min-width:0}
 .acct > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ach-soon .pill{flex:none;white-space:nowrap}
+#lbanner .lbbar{display:inline-block;width:180px;height:6px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden;vertical-align:middle;margin-right:6px}
+#lbanner .lbbar i{display:block;height:100%;background:linear-gradient(90deg,var(--ember2),#f3d27a)}
+#lbanner .actions{display:flex;align-items:center;gap:8px}
+#lbanner .lbx{background:none;border:0;color:var(--muted);font-size:15px;cursor:pointer;padding:4px 6px;border-radius:6px}
+#lbanner .lbx:hover{color:var(--text);background:rgba(255,255,255,.06)}

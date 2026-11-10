@@ -143,6 +143,7 @@ func (a *app) addStoreApp(title, appID, location string, d customDetails) (*cust
 		if png, err := storeAppArt(location); err == nil {
 			_ = os.MkdirAll(customIconDir(), 0o755)
 			_ = os.WriteFile(filepath.Join(customIconDir(), cg.ID+".png"), png, 0o644)
+			a.iconSaved()
 		} else {
 			log.Printf("art for %s: %v", cg.ID, err)
 		}
@@ -288,7 +289,7 @@ func (a *app) addCustom(title, path string, d customDetails) (*customGame, error
 	a.set.Custom = append(a.set.Custom, cg)
 	a.saveSettings()
 	a.mergeCustom()
-	go saveCustomIcon(cg) // the program's own icon, for its tile
+	go func() { saveCustomIcon(cg); a.iconSaved() }() // the program's own icon, for its tile
 	log.Printf("added %s: %s", cg.ID, path)
 	return cg, nil
 }
@@ -342,6 +343,13 @@ func saveCustomIcon(cg *customGame) {
 	}
 	_ = os.MkdirAll(customIconDir(), 0o755)
 	_ = os.WriteFile(filepath.Join(customIconDir(), cg.ID+".png"), png, 0o644)
+}
+
+// iconSaved makes the page fetch a game's icon again (new catalog version).
+func (a *app) iconSaved() {
+	a.mu.Lock()
+	a.mergeCustom()
+	a.mu.Unlock()
 }
 
 var splitWords = regexp.MustCompile(`[_\-.]+`)
@@ -526,7 +534,9 @@ func (a *app) customRoutes(mux *http.ServeMux, guard func(http.HandlerFunc) http
 			http.NotFound(w, r)
 			return
 		}
-		w.Header().Set("Cache-Control", "no-store")
+		// The page adds the catalog version to these links, so a changed
+		// picture gets a new link; the same link can be cached.
+		w.Header().Set("Cache-Control", "private, max-age=86400")
 		if r.URL.Query().Get("kind") == "art" {
 			a.mu.Lock()
 			cg := a.customByID(id)
@@ -542,7 +552,13 @@ func (a *app) customRoutes(mux *http.ServeMux, guard func(http.HandlerFunc) http
 			http.ServeFile(w, r, filepath.Join(customIconDir(), name))
 			return
 		}
-		http.ServeFile(w, r, filepath.Join(customIconDir(), id+".png"))
+		p := filepath.Join(customIconDir(), id+".png")
+		if _, err := os.Stat(p); err != nil {
+			w.Header().Set("Cache-Control", "no-store") // it may be saved in a moment
+			http.NotFound(w, r)
+			return
+		}
+		http.ServeFile(w, r, p)
 	})
 }
 

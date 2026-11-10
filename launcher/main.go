@@ -6,6 +6,7 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
@@ -606,7 +607,6 @@ func (a *app) requestCheck() {
 func (a *app) updateLoop() {
 	for {
 		a.checkAll()
-		a.autoSelfUpdate()
 		a.autoInstallUpdates()
 		select {
 		case <-a.checkNow:
@@ -728,6 +728,9 @@ type launcherUpdate struct {
 	Notes       string `json:"notes"`
 	URL         string `json:"url"`
 	Downloading bool   `json:"downloading"`
+	Installing  bool   `json:"installing,omitempty"` // setup has been started; the launcher is closing
+	Done        int64  `json:"done,omitempty"`
+	Total       int64  `json:"total,omitempty"`
 	Progress    int    `json:"progress"`
 	Error       string `json:"error,omitempty"`
 }
@@ -741,6 +744,8 @@ func (a *app) launcherUpdate() *launcherUpdate { // caller holds a.mu
 	if j := a.selfJob; j != nil {
 		u.Error = j.err
 		u.Downloading = j.err == ""
+		u.Installing = j.err == "" && j.getPhase() == "Installing"
+		u.Done, u.Total = j.done.Load(), j.total.Load()
 		if t := j.total.Load(); t > 0 {
 			u.Progress = int(j.done.Load() * 100 / t)
 		}
@@ -772,9 +777,22 @@ func (a *app) selfUpdate(string) error {
 	a.selfJob = job
 	asset := *r.launcherAsset()
 	go func() {
+		// Like Bytehawk Launcher: download the new setup, then run it in its
+		// progress-only mode (/AUTO) - no questions, just the progress bar -
+		// and close; setup installs the update and opens the launcher again.
 		file, err := download(&asset, job)
 		if err == nil {
+			job.setPhase("Installing")
 			err = startSelfUpdate(file)
+		}
+		if errors.Is(err, errCancelled) {
+			a.mu.Lock()
+			if a.selfJob == job {
+				a.selfJob = nil
+			}
+			a.mu.Unlock()
+			log.Printf("self-update download cancelled")
+			return
 		}
 		if err != nil {
 			a.mu.Lock()
@@ -796,8 +814,30 @@ func (a *app) routes() http.Handler {
 	mux := http.NewServeMux()
 	sub, _ := fs.Sub(webFS, "web")
 	files := http.FileServer(http.FS(sub))
+	etags := map[string]string{} // pictures, by path: a hash of the file built into this version
+	_ = fs.WalkDir(sub, ".", func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && isPicture(p) {
+			if b, err := fs.ReadFile(sub, p); err == nil {
+				sum := sha256.Sum256(b)
+				etags["/"+p] = `"` + hex.EncodeToString(sum[:8]) + `"`
+			}
+		}
+		return nil
+	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-store")
+		// Pictures may be cached (redrawing the library must not reload every
+		// cover, which made the window flash); pages and scripts never are,
+		// so an update shows up straight away.
+		if tag, ok := etags[r.URL.Path]; ok {
+			w.Header().Set("ETag", tag)
+			w.Header().Set("Cache-Control", "private, max-age=86400")
+			if r.Header.Get("If-None-Match") == tag {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+		} else {
+			w.Header().Set("Cache-Control", "no-store")
+		}
 		files.ServeHTTP(w, r)
 	})
 	writeJSON := func(w http.ResponseWriter, v any) {
@@ -882,6 +922,14 @@ func (a *app) routes() http.Handler {
 	mux.HandleFunc("/api/install", action(a.install))
 	mux.HandleFunc("/api/uninstall", action(a.uninstall))
 	mux.HandleFunc("/api/selfupdate", action(a.selfUpdate))
+	mux.HandleFunc("/api/selfupdate/cancel", action(func(string) error {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		if j := a.selfJob; j != nil && j.err == "" && j.getPhase() != "Installing" {
+			j.cancelled.Store(true)
+		}
+		return nil
+	}))
 	mux.HandleFunc("/api/check", action(func(string) error { a.requestCheck(); return nil }))
 	mux.HandleFunc("/api/dismiss", action(func(id string) error { // clear a failed install's message
 		a.mu.Lock()
@@ -1108,6 +1156,14 @@ func (a *app) busy() bool {
 		if j.err == "" {
 			return true
 		}
+	}
+	return false
+}
+
+func isPicture(p string) bool {
+	switch strings.ToLower(filepath.Ext(p)) {
+	case ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".ico":
+		return true
 	}
 	return false
 }

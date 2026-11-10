@@ -4,6 +4,20 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.15.0] - 2026-11-09
+
+### Changed
+- Launcher updates now work like Bytehawk Launcher's. When a new version is out, a banner offers it: Update now downloads the installer (with progress and a Cancel button), then the installer runs on its own showing just its progress bar, with no questions to answer. The launcher closes and the installer opens it again when it's done. Release notes and a ✕ to hide the banner are next to the button.
+- The launcher no longer updates itself without asking; games still update automatically.
+
+### Fixed
+- The launcher no longer flashes while a game is running. It was redrawing the whole library every second and a half as the play-time counter ticked, and reloading every cover picture each time. It now redraws only when something you can see changes, and keeps cover pictures cached.
+
+## [2.14.1] - 2026-11-09
+
+### Fixed
+- The launcher no longer flashes while a game is running. It was redrawing the whole library every second and a half as the play-time counter ticked, and reloading every cover picture each time. It now redraws only when something you can see changes (play time in whole minutes), and keeps cover pictures cached.
+
 ## [2.14.0] - 2026-11-09
 
 ### Added

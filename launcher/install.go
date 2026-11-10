@@ -35,7 +35,10 @@ type installJob struct {
 	done, total atomic.Int64
 	err         string
 	update      bool
+	cancelled   atomic.Bool
 }
+
+var errCancelled = errors.New("cancelled")
 
 func (j *installJob) setPhase(p string) { j.phase.Store(p) }
 func (j *installJob) getPhase() string {
@@ -85,6 +88,12 @@ func download(a *ghAsset, job *installJob) (string, error) {
 	var n int64
 	idle := time.AfterFunc(2*time.Minute, func() { resp.Body.Close() }) // stalled connection
 	for {
+		if job.cancelled.Load() {
+			idle.Stop()
+			f.Close()
+			os.Remove(tmp)
+			return "", errCancelled
+		}
 		k, rerr := resp.Body.Read(buf)
 		if k > 0 {
 			idle.Reset(2 * time.Minute)

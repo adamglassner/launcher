@@ -61,6 +61,15 @@ func takeLock() bool {
 	return h != 0
 }
 
+// lockHeld reports whether a launcher is running (without taking the lock).
+func lockHeld() bool {
+	h, _, err := pCreateMutex.Call(0, 0, uintptr(unsafe.Pointer(u16(`Local\IroniteLauncher`))))
+	if h != 0 {
+		pCloseHandle.Call(h)
+	}
+	return err == syscall.Errno(183)
+}
+
 // waitForLock waits up to 8 seconds for a closing launcher to let go.
 func waitForLock() bool {
 	for i := 0; i < 40; i++ {
@@ -254,10 +263,10 @@ func helperPath() string { return filepath.Join(os.TempDir(), "IroniteLauncherUp
 func startSelfUpdate(setup string) error {
 	exe, err := os.Executable()
 	helperOK := err == nil && copyFile(exe, helperPath()) == nil
-	args := "/S"
-	if !helperOK {
-		args = "/S /relaunch" // let setup open the launcher instead
-	}
+	// /AUTO: setup shows only its progress window (no questions) and closes by
+	// itself; /relaunch: it opens the launcher again when it's done. The helper
+	// below is a backup in case setup couldn't.
+	args := "/AUTO /relaunch"
 	h, err := shellRun(setup, args, filepath.Dir(setup))
 	if err != nil {
 		return err
@@ -294,7 +303,14 @@ func afterUpdate(pidText, exe string) {
 	if !waited {
 		time.Sleep(45 * time.Second)
 	}
-	time.Sleep(1500 * time.Millisecond) // let setup's files settle
+	// Setup normally opens the new launcher itself; only step in if it didn't.
+	for i := 0; i < 20; i++ {
+		time.Sleep(500 * time.Millisecond)
+		if lockHeld() {
+			log.Printf("the launcher is running again after the update")
+			return
+		}
+	}
 	cmd := exec.Command(exe)
 	cmd.Dir = filepath.Dir(exe)
 	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x00000008 | 0x00000200}
