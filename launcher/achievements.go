@@ -238,8 +238,16 @@ func xblBase() string {
 }
 
 func xblGet(key, path string, out any) error {
+	body, err := xblGetRaw(key, path)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(body, out)
+}
+
+func xblGetRaw(key, path string) ([]byte, error) {
 	if key == "" {
-		return errors.New("add your OpenXBL key on the Achievements page to see Xbox achievements")
+		return nil, errors.New("add your OpenXBL key on the Achievements page to see Xbox achievements")
 	}
 	req, _ := http.NewRequest("GET", xblBase()+path, nil)
 	req.Header.Set("X-Authorization", key)
@@ -248,19 +256,19 @@ func xblGet(key, path string, out any) error {
 	req.Header.Set("User-Agent", "IroniteLauncher/"+version)
 	resp, err := achClient.Do(req)
 	if err != nil {
-		return errors.New("couldn't reach OpenXBL")
+		return nil, errors.New("couldn't reach OpenXBL")
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
-		return errors.New("OpenXBL didn't accept your key; check it on the Achievements page")
+		return nil, errors.New("OpenXBL didn't accept your key; check it on the Achievements page")
 	case resp.StatusCode == http.StatusTooManyRequests:
-		return errors.New("OpenXBL's hourly limit was reached; try again later")
+		return nil, errors.New("OpenXBL's hourly limit was reached; try again later")
 	case resp.StatusCode != http.StatusOK:
-		return fmt.Errorf("OpenXBL answered %s", resp.Status)
+		return nil, fmt.Errorf("OpenXBL answered %s", resp.Status)
 	}
-	return json.Unmarshal(body, out)
+	return body, nil
 }
 
 type xblTitle struct {
@@ -339,8 +347,16 @@ func fetchXboxAchievements(key, titleID string) (*achResult, error) {
 			} `json:"rewards"`
 		} `json:"achievements"`
 	}
-	if err := xblGet(key, "/achievements/title/"+url.PathEscape(titleID), &out); err != nil {
+	body, err := xblGetRaw(key, "/achievements/title/"+url.PathEscape(titleID))
+	if err != nil {
 		return nil, err
+	}
+	if err := json.Unmarshal(body, &out); err != nil {
+		log.Printf("xbox achievements %s: %v: %.400s", titleID, err, body)
+		return nil, errors.New("OpenXBL sent something the launcher couldn't read")
+	}
+	if len(out.Achievements) == 0 {
+		log.Printf("xbox achievements %s: none in the reply: %.400s", titleID, body)
 	}
 	r := &achResult{Source: "xbox"}
 	for _, a := range out.Achievements {

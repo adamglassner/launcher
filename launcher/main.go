@@ -73,16 +73,26 @@ type catalog struct {
 }
 
 type gameStats struct {
-	PlayCount   int   `json:"playCount"`   // times opened
-	PlaySeconds int64 `json:"playSeconds"` // total time played
-	LastPlayed  int64 `json:"lastPlayed"`
-	InstalledAt int64 `json:"installedAt,omitempty"`
+	PlayCount   int       `json:"playCount"`   // times opened
+	PlaySeconds int64     `json:"playSeconds"` // total time played
+	LastPlayed  int64     `json:"lastPlayed"`
+	InstalledAt int64     `json:"installedAt,omitempty"`
+	Sessions    []session `json:"sessions,omitempty"` // the most recent play sessions (newest last)
 }
+
+type session struct {
+	Start int64 `json:"start"` // unix time
+	Secs  int64 `json:"secs"`
+}
+
+const maxSessions = 200
 
 type settings struct {
 	Stats      map[string]*gameStats     `json:"stats"`
 	Installs   map[string]*installRecord `json:"installs,omitempty"`
 	AutoUpdate *bool                     `json:"autoUpdate,omitempty"`
+	Favorites  []string                  `json:"favorites,omitempty"`
+	Hidden     []string                  `json:"hidden,omitempty"`
 	Custom     []*customGame             `json:"custom,omitempty"` // the player's own games
 	// Accounts for achievements from other launchers.
 	SteamProfile string `json:"steamProfile,omitempty"` // a profile link or ID; empty = the account signed in to Steam here
@@ -92,6 +102,11 @@ type settings struct {
 type gameState struct {
 	Available        bool   `json:"available"` // has a release (or is installed / web)
 	Installed        bool   `json:"installed"`
+	Favorite         bool   `json:"favorite,omitempty"`
+	Hidden           bool   `json:"hidden,omitempty"`
+	DiskSize         int64  `json:"diskSize,omitempty"` // bytes the installed game takes
+	QueuePos         int    `json:"queuePos,omitempty"` // waiting to download: place in line
+	QueueLen         int    `json:"queueLen,omitempty"` // downloads waiting or running
 	InstalledVersion string `json:"installedVersion,omitempty"`
 	LatestVersion    string `json:"latestVersion,omitempty"`
 	Update           bool   `json:"update"`
@@ -127,7 +142,12 @@ type app struct {
 	started   map[string]time.Time
 	credited  map[string]time.Time // last time play time was saved, per running game
 	jobs      map[string]*installJob
-	launchErr map[string]string        // why a game didn't start
+	launchErr map[string]string // why a game didn't start
+	queue     []string          // games waiting to download (the first one is downloading)
+	tasks     map[string]func() // what to do for each queued game
+	queueCond *sync.Cond
+	starting  map[string]time.Time     // Store / Xbox games we've asked Windows to start
+	sizes     map[string]int64         // installed games' size on disk
 	stopWatch map[string]chan struct{} // "it's closed" for Store / Xbox games being watched
 	token     string
 	lastSeen  atomic.Int64
@@ -244,7 +264,8 @@ func (a *app) setCatalog(b []byte) error {
 func (a *app) states() map[string]gameState { // caller holds a.mu
 	out := map[string]gameState{}
 	for _, g := range a.cat.Games {
-		st := gameState{Running: a.running[g.ID] != nil}
+		_, starting := a.starting[g.ID]
+		st := gameState{Running: a.running[g.ID] != nil || starting}
 		if g.isLocal() {
 			st.Available, st.Installed = true, true
 			if cg := a.customByID(g.ID); cg != nil {
@@ -277,7 +298,8 @@ func (a *app) states() map[string]gameState { // caller holds a.mu
 				st.Available = true
 			}
 		}
-		if !st.Available && !st.Installed && a.set.Stats[g.ID] == nil {
+		st.Favorite, st.Hidden = contains(a.set.Favorites, g.ID), contains(a.set.Hidden, g.ID)
+		if !st.Available && !st.Installed && a.set.Stats[g.ID] == nil && !st.Favorite && !st.Hidden {
 			continue // coming soon
 		}
 		if st.Running {
@@ -295,6 +317,14 @@ func (a *app) states() map[string]gameState { // caller holds a.mu
 				if t := j.total.Load(); t > 0 {
 					st.Progress = int(j.done.Load() * 100 / t)
 				}
+			}
+		}
+		if st.Installed {
+			st.DiskSize = a.sizes[g.ID]
+		}
+		for i, q := range a.queue {
+			if q == g.ID {
+				st.QueuePos, st.QueueLen = i+1, len(a.queue)
 			}
 		}
 		if e := a.launchErr[g.ID]; e != "" {
@@ -348,10 +378,12 @@ func (a *app) install(id string) error {
 		return nil // up to date
 	}
 	job := &installJob{update: a.set.Installs[id] != nil}
-	job.setPhase("Downloading")
+	job.setPhase("Queued")
 	a.jobs[id] = job
 	asset, ver := *r.gameAsset(), r.Version()
-	go func() {
+	// Downloads wait their turn: one at a time, in the order they were asked for.
+	a.enqueue(id, func() {
+		job.setPhase("Downloading")
 		rec, err := func() (*installRecord, error) {
 			file, err := download(&asset, job)
 			if err != nil {
@@ -380,7 +412,8 @@ func (a *app) install(id string) error {
 		s.InstalledAt = rec.InstalledAt
 		a.saveSettings()
 		log.Printf("installed %s %s (%s) in %s", id, ver, rec.Kind, rec.Dir)
-	}()
+		go a.measureSize(id)
+	})
 	return nil
 }
 
@@ -508,37 +541,37 @@ func (a *app) launch(id string) error {
 	delete(a.launchErr, id)
 	a.mu.Unlock()
 
-	start := time.Now()
-	a.mu.Lock()
-	a.running[id] = cmd
-	a.started[id] = start
-	a.credited[id] = start
-	s := a.set.Stats[id]
-	if s == nil {
-		s = &gameStats{}
-		a.set.Stats[id] = s
+	if store != nil {
+		// Windows starts Store / Xbox games, so wait to see the game's own
+		// programs before counting the open and the play time.
+		a.mu.Lock()
+		a.starting[id] = time.Now()
+		a.mu.Unlock()
+		go func() {
+			_ = cmd.Wait() // just Explorer handing over
+			seen := waitUntilRunning(*store, 2*time.Minute)
+			a.mu.Lock()
+			delete(a.starting, id)
+			if !seen {
+				a.launchErr[id] = g.Title + " didn't seem to start (the launcher couldn't see it running), so no play time was counted. If it's open, the launcher will notice it within a few seconds."
+			}
+			a.mu.Unlock()
+			if seen {
+				a.trackRunning(id, *store, "started from the launcher")
+			} else {
+				log.Printf("%s: none of its programs appeared", id)
+			}
+		}()
+		return nil
 	}
-	s.PlayCount++
-	s.LastPlayed = start.Unix()
-	a.saveSettings()
-	a.mu.Unlock()
+
+	start := time.Now()
+	a.beginSession(id, cmd, start)
 
 	// Track time played. Saved every minute so a crash loses at most a minute.
 	exited := make(chan struct{})
 	go func() {
-		err := cmd.Wait() // for Store games this is just Explorer handing over
-		if store != nil {
-			stop := make(chan struct{})
-			a.mu.Lock()
-			a.stopWatch[id] = stop
-			a.mu.Unlock()
-			waitForStoreGame(id, *store, start, stop)
-			a.mu.Lock()
-			delete(a.stopWatch, id)
-			a.mu.Unlock()
-			close(exited)
-			return
-		}
+		err := cmd.Wait()
 		if took := time.Since(start); took < 8*time.Second && !g.isWeb() {
 			code := -1
 			if cmd.ProcessState != nil {
@@ -553,44 +586,76 @@ func (a *app) launch(id string) error {
 		}
 		close(exited)
 	}()
-	go func() {
-		last := start
-		tick := time.NewTicker(time.Minute)
-		defer tick.Stop()
-		credit := func(now time.Time) {
-			a.mu.Lock()
+	go a.trackSession(id, start, exited)
+	return nil
+}
+
+// beginSession counts an open and marks the game as running.
+func (a *app) beginSession(id string, cmd *exec.Cmd, start time.Time) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.running[id] = cmd
+	a.started[id] = start
+	a.credited[id] = start
+	s := a.set.Stats[id]
+	if s == nil {
+		s = &gameStats{}
+		a.set.Stats[id] = s
+	}
+	s.PlayCount++
+	s.LastPlayed = start.Unix()
+	a.saveSettings()
+}
+
+// trackSession adds up play time until exited closes, saving every minute
+// (so a crash loses at most a minute), then records the session.
+func (a *app) trackSession(id string, start time.Time, exited <-chan struct{}) {
+	last := start
+	tick := time.NewTicker(time.Minute)
+	defer tick.Stop()
+	credit := func(now time.Time) {
+		a.mu.Lock()
+		if s := a.set.Stats[id]; s != nil {
 			s.PlaySeconds += int64(now.Sub(last).Round(time.Second) / time.Second)
 			s.LastPlayed = now.Unix()
-			last = now
-			a.credited[id] = now
-			a.saveSettings()
-			a.mu.Unlock()
 		}
-		for {
-			select {
-			case now := <-tick.C:
-				credit(now)
-			case <-exited:
-				credit(time.Now())
-				a.mu.Lock()
-				delete(a.running, id)
-				delete(a.started, id)
-				delete(a.credited, id)
-				a.mu.Unlock()
-				log.Printf("%s closed after %s", id, time.Since(start).Round(time.Second))
-				a.requestCheck() // a postponed update can install now
-				return
+		last = now
+		a.credited[id] = now
+		a.saveSettings()
+		a.mu.Unlock()
+	}
+	for {
+		select {
+		case now := <-tick.C:
+			credit(now)
+		case <-exited:
+			credit(time.Now())
+			a.mu.Lock()
+			if s := a.set.Stats[id]; s != nil {
+				if secs := int64(time.Since(start) / time.Second); secs > 0 {
+					s.Sessions = append(s.Sessions, session{Start: start.Unix(), Secs: secs})
+					if len(s.Sessions) > maxSessions {
+						s.Sessions = s.Sessions[len(s.Sessions)-maxSessions:]
+					}
+					a.saveSettings()
+				}
 			}
+			delete(a.running, id)
+			delete(a.started, id)
+			delete(a.credited, id)
+			a.mu.Unlock()
+			log.Printf("%s closed after %s", id, time.Since(start).Round(time.Second))
+			a.requestCheck() // a postponed update can install now
+			return
 		}
-	}()
-	return nil
+	}
 }
 
 // gamesRunning reports whether any game the launcher started is still open.
 func (a *app) gamesRunning() bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return len(a.running) > 0
+	return len(a.running) > 0 || len(a.starting) > 0
 }
 
 /* ---------- checking GitHub for releases ---------- */
@@ -918,6 +983,7 @@ func (a *app) routes() http.Handler {
 	}
 	a.customRoutes(mux, guard, writeJSON)
 	a.achievementRoutes(mux, guard, writeJSON)
+	a.extraRoutes(mux, guard, writeJSON)
 	mux.HandleFunc("/api/launch", action(a.launch))
 	mux.HandleFunc("/api/install", action(a.install))
 	mux.HandleFunc("/api/uninstall", action(a.uninstall))
@@ -976,7 +1042,7 @@ func instanceFile() string { return filepath.Join(cacheDir(), "instance.json") }
 // to the front (or opens a new window for it) and returns true. If that
 // launcher has stopped answering, it is closed and handOff returns false so
 // this one takes over.
-func handOff() bool {
+func handOff(playID string) bool {
 	var in instanceInfo
 	b, err := os.ReadFile(instanceFile())
 	if err == nil {
@@ -998,6 +1064,12 @@ func handOff() bool {
 		resp.Body.Close()
 	}
 	if err == nil && resp.StatusCode == http.StatusOK {
+		if playID != "" { // started from a game's desktop shortcut
+			if err := askRunningToPlay(in, playID); err != nil {
+				log.Printf("asking the running launcher to start %s: %v", playID, err)
+			}
+			return true
+		}
 		if focusWindow(productName + " " + in.Version) {
 			log.Printf("focused the open launcher window")
 			return true
@@ -1025,6 +1097,7 @@ func main() {
 		return
 	}
 	logPath := filepath.Join(os.TempDir(), "IroniteLauncher.log")
+	playID := playFromArgs() // started from a game's desktop shortcut
 	if len(os.Args) > 3 && os.Args[1] == "--after-update" {
 		// The restart helper (see startSelfUpdate).
 		if f, _ := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); f != nil {
@@ -1039,7 +1112,7 @@ func main() {
 			log.SetOutput(f)
 		}
 		log.Printf("%s %s: second start", productName, version)
-		if handOff() {
+		if handOff(playID) {
 			return
 		}
 	}
@@ -1050,7 +1123,7 @@ func main() {
 	migrateOldFolders()
 
 	a := &app{running: map[string]*exec.Cmd{}, started: map[string]time.Time{}, credited: map[string]time.Time{},
-		jobs: map[string]*installJob{}, launchErr: map[string]string{}, stopWatch: map[string]chan struct{}{}, checkNow: make(chan struct{}, 1)}
+		jobs: map[string]*installJob{}, launchErr: map[string]string{}, tasks: map[string]func(){}, starting: map[string]time.Time{}, sizes: map[string]int64{}, stopWatch: map[string]chan struct{}{}, checkNow: make(chan struct{}, 1)}
 	a.loadSettings()
 	a.rel = loadReleaseCache()
 	cb, _ := webFS.ReadFile("web/games.json")
@@ -1063,7 +1136,11 @@ func main() {
 	a.saveSettings()
 	a.mu.Unlock()
 	_ = os.RemoveAll(filepath.Join(cacheDir(), "Downloads")) // leftovers from an interrupted download
+	a.queueCond = sync.NewCond(&a.mu)
+	go a.queueWorker()
 	go a.updateLoop()
+	go a.measureAllSizes()
+	go a.watchGames()
 	go func() { time.Sleep(15 * time.Second); _ = os.Remove(helperPath()) }() // left by an update
 
 	tb := make([]byte, 16)
@@ -1097,7 +1174,17 @@ func main() {
 	// background (so play time and installs are recorded); it quits after.
 	started := time.Now()
 	windowGone := make(chan struct{})
-	if wait, ok := openWindow(url); ok {
+	if playID != "" {
+		// Started from a game's desktop shortcut: start the game and stay in the
+		// background (no window) to count its play time, then quit.
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			if err := a.launch(playID); err != nil {
+				log.Printf("shortcut: %s: %v", playID, err)
+				msgBox("Couldn't start the game: "+err.Error(), 0x30)
+			}
+		}()
+	} else if wait, ok := openWindow(url); ok {
 		go func() {
 			wait()
 			// The window closed (and not just a hand-off to a browser that was
@@ -1112,7 +1199,7 @@ func main() {
 	// Right after an update the old window's browser may still be closing and
 	// swallow the new window. If the page hasn't loaded, open the window again.
 	go func() {
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 3 && playID == ""; i++ {
 			time.Sleep(10 * time.Second)
 			if a.seen.Load() {
 				return

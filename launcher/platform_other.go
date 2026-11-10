@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // Non-Windows stubs, used only for development and testing.
@@ -51,8 +52,8 @@ func exeIconPNG(string) ([]byte, error) { return nil, errors.New("icons are read
 
 // Xbox / Microsoft Store games are Windows-only. In development a sample
 // list is shown so the page can be tried out.
-func storeAppCommand(appID string) *exec.Cmd  { return exec.Command("true") }
-func storeProcesses(storeMatch) (int, string) { return 0, "" }
+func storeAppCommand(appID string) *exec.Cmd { return exec.Command("true") }
+func processList() []procInfo                { return fakeProcs() }
 func listStoreApps() ([]storeApp, error) {
 	if os.Getenv("IRONITE_DEV") != "" {
 		return []storeApp{
@@ -64,4 +65,34 @@ func listStoreApps() ([]storeApp, error) {
 		}, nil
 	}
 	return nil, errors.New("Xbox and Microsoft Store games can be added on Windows")
+}
+
+// Desktop shortcuts are made on Windows; in development one is written to
+// IRONITE_DESKTOP (if set) so the feature can be tried out.
+func createShortcut(name, target, args, icon, desc string) (string, error) {
+	dir := os.Getenv("IRONITE_DESKTOP")
+	if dir == "" {
+		return "", errors.New("desktop shortcuts are made on Windows")
+	}
+	p := filepath.Join(dir, name+".lnk.txt")
+	return p, os.WriteFile(p, []byte(target+" "+args+"\nicon: "+icon+"\n"+desc+"\n"), 0o644)
+}
+
+// In development, IRONITE_FAKE_PROCS names a file of running programs
+// ("path|package family" per line) so game detection can be tried out.
+func fakeProcs() []procInfo {
+	b, err := os.ReadFile(os.Getenv("IRONITE_FAKE_PROCS"))
+	if err != nil {
+		return nil
+	}
+	var out []procInfo
+	for _, line := range strings.Split(string(b), "\n") {
+		path, fam, _ := strings.Cut(strings.TrimSpace(line), "|")
+		if path == "" && fam == "" {
+			continue
+		}
+		path = strings.ToLower(path)
+		out = append(out, procInfo{Name: strings.ToLower(filepath.Base(path)), Path: path, Family: strings.ToLower(fam)})
+	}
+	return out
 }

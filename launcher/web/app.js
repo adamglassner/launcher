@@ -48,7 +48,7 @@
   const isWeb = g => g && g.type === 'web';
   const avail = g => !!st(g.id).available;
   const demo = g => g && g.demo;
-  const featured = () => FEATURED.filter(f => game(f.id) && avail(game(f.id)));
+  const featured = () => FEATURED.filter(f => game(f.id) && avail(game(f.id)) && !st(f.id).hidden);
   // Compatibility: only the versions that actually exist are listed.
   const PLAT = { windows: ['Windows', '⊞'], macos: ['macOS', '⌘'], linux: ['Linux', '♦'], web: ['Web', '◎'] };
   const platChips = (list, cls = '') => (list || []).filter(k => PLAT[k]).map(k => `<span class="plat ${cls}" title="Plays on ${PLAT[k][0]}"><i>${PLAT[k][1]}</i>${PLAT[k][0]}</span>`).join('');
@@ -120,6 +120,7 @@
       if (s.running) return { act: null, cls: 'play', html: 'PLAYING…' };
       return { act: 'play', cls: 'play', html: '▶&nbsp; PLAY ONLINE' };
     }
+    if (s.installing && s.phase === 'Queued') return { act: null, cls: 'play inst', html: s.queueLen > 1 ? `QUEUED · ${s.queuePos} OF ${s.queueLen}` : 'QUEUED…' };
     if (s.installing) {
       const word = s.phase === 'Downloading' ? (s.updating ? 'UPDATING' : 'DOWNLOADING') : 'INSTALLING';
       const pct = s.phase === 'Downloading' || s.progress ? ` <span class="bar"><i style="width:${s.progress || 0}%"></i></span> ${s.progress || 0}%` : '…';
@@ -137,6 +138,8 @@
     if (isWeb(g)) return s.running ? '<span class="pill ready">PLAYING</span>' : '<span class="pill web">🌐 WEB GAME</span>';
     if (isLocal(g)) return s.running ? '<span class="pill ready">PLAYING</span>' : s.launchError ? '<span class="pill miss">NOT FOUND</span>' : g.store ? '<span class="pill mine">XBOX / STORE</span>' : '<span class="pill mine">YOUR GAME</span>';
     if (s.error) return '<span class="pill miss">INSTALL FAILED</span>';
+    if (s.installing && s.phase === 'Queued') return `<span class="pill inst">QUEUED${s.queueLen > 1 ? ` · ${s.queuePos} OF ${s.queueLen}` : ''}</span>`;
+    if (s.installing && s.queueLen > 1) return `<span class="pill inst">${s.phase === 'Downloading' ? (s.updating ? 'UPDATING' : 'DOWNLOADING') : 'INSTALLING'} ${s.progress || 0}% · 1 OF ${s.queueLen}</span>`;
     if (s.installing) return `<span class="pill inst">${s.phase === 'Downloading' ? (s.updating ? 'UPDATING' : 'DOWNLOADING') : 'INSTALLING'} ${s.progress || 0}%</span>`;
     if (s.running) return '<span class="pill ready">PLAYING</span>';
     if (s.installed && s.update) return '<span class="pill upd">UPDATE' + (short ? '' : ' AVAILABLE') + '</span>';
@@ -257,8 +260,9 @@
     if (where === 'installed') sub = (isWeb(g) ? 'Web game · ' : isLocal(g) ? 'Your game · ' : s.installedVersion ? `v${esc(s.installedVersion)} · ` : '') + `Played ${dur(played(s))}`;
     const icon = !p || !p.act ? '' : p.act === 'play' ? '▶' : s.update ? '⟳' : '⬇';
     const chip = icon ? `<span class="playchip ${p.act === 'play' ? 'go' : s.update ? 'up' : ''}" data-act="${p.act}" title="${p.act === 'play' ? 'Play' : s.update ? 'Update to ' + esc(s.latestVersion) : 'Install'}">${icon}</span>` : '';
-    return `<button class="tile ${soon ? 'soon' : ''} ${wide ? 'wide' : ''} ${demo(g) ? 'isdemo' : ''}" data-id="${g.id}">
-      <span class="cv">${cover(g.id)}${demo(g) ? '<span class="demoband">FREE DEMO</span>' : ''}</span>
+    const star = wide ? '' : `<span class="favstar ${s.favorite ? 'on' : ''}" data-fav title="${s.favorite ? 'Remove from Favorites' : 'Add to Favorites'}">${s.favorite ? '★' : '☆'}</span>`;
+    return `<button class="tile ${soon ? 'soon' : ''} ${wide ? 'wide' : ''} ${demo(g) ? 'isdemo' : ''} ${s.hidden ? 'ishidden' : ''}" data-id="${g.id}">
+      <span class="cv">${cover(g.id)}${demo(g) ? '<span class="demoband">FREE DEMO</span>' : ''}${s.hidden ? '<span class="hidband">HIDDEN</span>' : ''}${star}</span>
       <span class="ribbon">${pillFor(g, true)}</span>${chip}
       <span class="tt"><div class="t1">${esc(g.title)}${demoTag(g)}</div><div class="t2">${sub}</div>${plays(g)}</span>
       ${s.installing ? `<span class="tbar"><i style="width:${s.progress || 0}%"></i></span>` : ''}
@@ -274,7 +278,7 @@
   }
   // Non-Ironite Games: all of the player's own games, grouped by the category they gave them.
   function customSection(c) {
-    const mine = catalog.games.filter(isLocal);
+    const mine = catalog.games.filter(g => isLocal(g) && visible(g));
     const n = mine.length, count = n ? `${n} ${n === 1 ? 'game' : 'games'}` : 'Add your first game';
     const groups = [...new Set(mine.map(g => g.group || ''))].sort((a, b) => !a ? 1 : !b ? -1 : a.localeCompare(b));
     if (view !== 'custom' || groups.length < 2) return section(c.name, count, c.blurb, mine, 'cat', '', addTile());
@@ -288,10 +292,47 @@
   }
   const addTile = () => `<button class="tile addtile" data-addgame><span class="cv"><span class="plus">+</span></span>
       <span class="tt"><div class="t1">Add a game</div><div class="t2">Any game on this PC</div></span></button>`;
+  // Library tools: search, sorting Installed, Favorites and hidden games.
+  const LS = { get: (k, d) => { try { const v = localStorage.getItem('ironite.' + k); return v == null ? d : v; } catch (e) { return d; } },
+               set: (k, v) => { try { localStorage.setItem('ironite.' + k, v); } catch (e) { } } };
+  let query = '', showHidden = false, sortBy = LS.get('sort', 'recent');
+  const visible = g => showHidden || !st(g.id).hidden;
+  const matches = g => !query || [g.title, g.subtitle, g.group].filter(Boolean).join(' ').toLowerCase().includes(query);
+  function sortGames(list) {
+    const by = { recent: (a, b) => (st(b.id).lastPlayed || 0) - (st(a.id).lastPlayed || 0) || a.title.localeCompare(b.title),
+                 most: (a, b) => played(st(b.id)) - played(st(a.id)) || a.title.localeCompare(b.title),
+                 az: (a, b) => a.title.localeCompare(b.title) }[sortBy];
+    return list.slice().sort(by);
+  }
+  function libraryTools() {
+    const nHidden = catalog.games.filter(g => st(g.id).hidden).length;
+    $('#showHidLbl').classList.toggle('hidden', !nHidden && !showHidden);
+    $('#showHidTxt').textContent = `Show hidden (${nHidden})`;
+    $('#sortSel').classList.toggle('hidden', view !== 'installed');
+    $('#sortSel').value = sortBy;
+  }
+  $('#q').oninput = () => { query = $('#q').value.trim().toLowerCase(); $('#qClear').classList.toggle('hidden', !query); renderLibrary(); };
+  $('#qClear').onclick = () => { $('#q').value = ''; $('#q').oninput(); $('#q').focus(); };
+  $('#showHid').onchange = () => { showHidden = $('#showHid').checked; renderLibrary(); };
+  $('#sortSel').onchange = () => { sortBy = $('#sortSel').value; LS.set('sort', sortBy); renderLibrary(); };
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f' && !$('#vLibrary').classList.contains('hidden')) { e.preventDefault(); $('#q').focus(); $('#q').select(); }
+  });
+
   function renderCats() {
-    $('#hero').classList.toggle('hidden', view !== 'all' || !featured().length);
+    libraryTools();
+    $('#hero').classList.toggle('hidden', view !== 'all' || !featured().length || !!query);
     let html = '';
-    const inst = installedGames(), ups = updatable();
+    const inst = sortGames(installedGames()), ups = updatable();
+    if (query) {
+      const pool = view === 'all' ? catalog.games : view === 'installed' ? inst : view === 'custom' ? catalog.games.filter(isLocal) : catalog.games.filter(g => g.category === view);
+      const found = pool.filter(g => !isPlaceholder(g) && matches(g) && visible(g)).sort((a, b) => (avail(b) ? 1 : 0) - (avail(a) ? 1 : 0) || a.title.localeCompare(b.title));
+      html = found.length ? section('Search results', `${found.length} ${found.length === 1 ? 'game' : 'games'} matching “${esc($('#q').value.trim())}”`, '', found, 'cat')
+        : `<div class="cat"><div class="cat-h"><h2>Search results</h2></div><div class="empty"><b>No games match “${esc($('#q').value.trim())}”</b>Try a shorter name${catalog.games.some(g => st(g.id).hidden) && !showHidden ? ', or tick Show hidden' : ''}.</div></div>`;
+      return finishCats(html, ups);
+    }
+    const favs = catalog.games.filter(g => st(g.id).favorite && visible(g));
+    if (view === 'all' && favs.length) html += section('Favorites', `${favs.length} ${favs.length === 1 ? 'game' : 'games'}`, '', favs, 'cat');
     const upBtn = ups.length ? `<button class="btn play upd small upall" data-upall>⟳&nbsp; Update all (${ups.length})</button>` : '';
     if (view === 'installed') {
       const total = inst.reduce((t, g) => t + played(st(g.id)), 0);
@@ -302,7 +343,7 @@
       if (view === 'all' && inst.length)
         html += section('Installed', `${inst.length} ${inst.length === 1 ? 'game' : 'games'}`, '', inst, 'installed', upBtn);
       html += catalog.categories.filter(c => view === 'all' || view === c.id).map(c => {
-        const list = catalog.games.filter(g => g.category === c.id);
+        const list = catalog.games.filter(g => g.category === c.id && visible(g));
         list.sort((a, b) => (avail(b) ? 1 : 0) - (avail(a) ? 1 : 0));
         const ready = list.filter(avail).length;
         if (c.id === 'custom') return customSection(c);
@@ -310,8 +351,12 @@
         return section(c.name, count, c.blurb, list, 'cat');
       }).join('');
     }
+    finishCats(html, ups);
+  }
+  function finishCats(html, ups) {
     $('#cats').innerHTML = html;
     document.querySelectorAll('.tile[data-id]').forEach(t => t.onclick = e => {
+      if (e.target.closest('[data-fav]')) { e.stopPropagation(); setPref(t.dataset.id, { favorite: !st(t.dataset.id).favorite }); return; }
       const chip = e.target.closest('.playchip');
       if (chip && chip.dataset.act) { e.stopPropagation(); act(t.dataset.id, chip.dataset.act); return; }
       details(t.dataset.id);
@@ -338,7 +383,12 @@
       $('#mSub').textContent = isPlaceholder(g) ? 'New category' : `${g.subtitle} · ${g.players}`;
       $('#mDesc').textContent = g.description + (g.repo ? ' It will be ready to install here as soon as its first release is published.' : ' Coming soon to Ironite Launcher.');
       $('#mMeta').innerHTML = '';
-      $('#mActions').innerHTML = '<button class="btn ghost small" data-close>Got it</button>';
+      const s0 = st(id);
+      $('#mActions').innerHTML = `<button class="btn ghost small" data-close>Got it</button>
+        <div class="mtools"><button class="linkbtn" data-favt>${s0.favorite ? '★ In Favorites' : '☆ Add to Favorites'}</button>
+          <button class="linkbtn" data-hide>${s0.hidden ? 'Show in the Library again' : 'Hide this game'}</button></div>`;
+      $('#mActions').querySelector('[data-favt]').onclick = () => setPref(id, { favorite: !s0.favorite });
+      $('#mActions').querySelector('[data-hide]').onclick = () => setPref(id, { hidden: !s0.hidden }).then(() => toast(s0.hidden ? `${g.title} is back in the Library.` : `${g.title} is hidden. Tick Show hidden to see it again.`));
     } else {
       const s = st(id), p = primary(id);
       const v = isWeb(g) ? 'Web game' : isLocal(g) ? (g.store ? 'Xbox / Microsoft Store' : 'Not an Ironite game') + (g.group ? ` · ${esc(g.group)}` : '') : s.installed
@@ -350,7 +400,8 @@
           : `Added from <code class="path">${esc(g.exe)}</code>. The launcher starts it and tracks your play time; updates come from the game itself.`) : esc(g.description + (isWeb(g) ? ' Needs an internet connection; your progress is saved on this PC.' : '') +
         (demo(g) ? ' New demo versions arrive automatically through the launcher.' : ''));
       $('#mMeta').innerHTML = (isLocal(g) ? '' : `<span class="mplats">Plays on ${plays(g)}</span>`) + `<span>Opened <b>${opens(s.playCount)}</b></span><span>Played <b>${dur(played(s))}</b></span><span>Last played <b>${ago(s.lastPlayed)}</b></span>` +
-        (s.installed && s.installedAt ? `<span>${isLocal(g) ? 'Added' : 'Installed'} <b>${ago(s.installedAt)}</b></span>` : '');
+        (s.installed && s.installedAt ? `<span>${isLocal(g) ? 'Added' : 'Installed'} <b>${ago(s.installedAt)}</b></span>` : '') +
+        (s.diskSize ? `<span>Size on disk <b>${size(s.diskSize)}</b></span>` : '');
       if (s.error) $('#mNotes').innerHTML = `<div class="err">${esc(s.error)}</div>`;
       else if (s.launchError) $('#mNotes').innerHTML = `<div class="err">${esc(s.launchError)}</div>`;
       else if (s.notes) $('#mNotes').innerHTML = `<div class="notes"><div class="nh">${s.update ? 'New in' : 'What’s new in'} version ${esc(s.latestVersion)}${s.publishedAt ? ` <span>· ${ago(s.publishedAt)}</span>` : ''}</div>${notesHtml(s.notes)}</div>`;
@@ -360,7 +411,20 @@
         ${isLocal(g) && g.store && s.running ? '<button class="btn ghost small" data-closed>■&nbsp; It\u2019s closed</button>' : ''}
         ${isLocal(g) ? '<button class="btn ghost small" data-edit>✎&nbsp; Edit details</button>' : ''}
         ${s.installed && !s.running && !s.installing ? `<button class="btn danger" data-act="uninstall">${isLocal(g) ? 'Remove from launcher' : 'Uninstall'}</button>` : ''}
-        <button class="btn ghost small" data-close>Close</button>`;
+        <button class="btn ghost small" data-close>Close</button>
+        <div class="mtools">
+          <button class="linkbtn" data-favt>${s.favorite ? '★ In Favorites' : '☆ Add to Favorites'}</button>
+          <button class="linkbtn" data-hide>${s.hidden ? 'Show in the Library again' : 'Hide this game'}</button>
+          ${s.installed || isWeb(g) ? '<button class="linkbtn" data-shortcut>Desktop shortcut</button>' : ''}
+        </div>`;
+      $('#mActions').querySelector('[data-favt]').onclick = () => setPref(id, { favorite: !s.favorite });
+      $('#mActions').querySelector('[data-hide]').onclick = () => setPref(id, { hidden: !s.hidden }).then(() => toast(s.hidden ? `${g.title} is back in the Library.` : `${g.title} is hidden. Tick Show hidden to see it again.`));
+      const sc = $('#mActions').querySelector('[data-shortcut]');
+      if (sc) sc.onclick = async () => {
+        try { await api('/api/shortcut', { id }); toast(`Added a ${g.title} shortcut to your desktop. It starts the game through the launcher, so play time is still counted.`); }
+        catch (e) { toast(cap(e.message) + '.'); }
+      };
+      if (s.playCount) showSessions(id);
       const cl = $('#mActions').querySelector('[data-closed]');
       if (cl) cl.onclick = async () => { try { const r = await api('/api/custom/closed', { id }); Object.assign(state.games, r.games); renderAll(); } catch (e) { toast(cap(e.message) + '.'); } };
       const ed = $('#mActions').querySelector('[data-edit]');
@@ -699,6 +763,75 @@
   $('#modal').onclick = e => { if (e.target.id === 'modal') closeModal(); };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
+  async function setPref(id, pref) {
+    try { const r = await api('/api/pref', Object.assign({ id }, pref)); Object.assign(state.games, r.games); renderAll(); }
+    catch (e) { toast(cap(e.message) + '.'); }
+  }
+  // A game's recent play sessions, under its details.
+  async function showSessions(id) {
+    let list;
+    try { list = (await api('/api/sessions?id=' + encodeURIComponent(id))).sessions || []; } catch (e) { return; }
+    if (modalId !== id || !list.length) return;
+    const fmt = t => new Date(t * 1000).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const box = document.createElement('div');
+    box.className = 'sessions';
+    box.innerHTML = `<div class="nh">Recent sessions</div>` + list.slice(0, 6).map(x => `<div class="sess"><span>${esc(fmt(x.start))}</span><b>${dur(x.secs)}</b></div>`).join('') +
+      (list.length > 6 ? `<div class="muted small">${list.length - 6} more on the Stats page</div>` : '');
+    const old = $('#mNotes .sessions'); if (old) old.remove();
+    $('#mNotes').appendChild(box);
+  }
+
+  /* ---------- stats ---------- */
+  const PALETTE = ['#e8873a', '#5fc489', '#6aa8f0', '#e7c35a', '#c07cf0', '#f07c8c', '#4fd1c5'];
+  async function renderStats() {
+    const body = $('#statsBody');
+    let d;
+    try { d = await api('/api/stats'); } catch (e) { body.innerHTML = `<div class="err">${esc(cap(e.message))}.</div>`; return; }
+    if (view !== 'stats') return;
+    const rows = d.games.filter(r => game(r.id));
+    const weekly = rows.filter(r => r.weeks.some(Boolean));
+    const top = weekly.slice().sort((a, b) => b.weeks.reduce((x, y) => x + y, 0) - a.weeks.reduce((x, y) => x + y, 0)).slice(0, PALETTE.length - 1);
+    const series = top.map((r, i) => ({ id: r.id, name: game(r.id).title, color: PALETTE[i], weeks: r.weeks }));
+    const rest = weekly.filter(r => !top.includes(r));
+    if (rest.length) series.push({ id: '', name: `Other games (${rest.length})`, color: '#6b7280', weeks: d.weekStarts.map((_, i) => rest.reduce((t, r) => t + r.weeks[i], 0)) });
+    const totals = d.weekStarts.map((_, i) => series.reduce((t, x) => t + x.weeks[i], 0));
+    const max = Math.max(3600, ...totals);
+    const W = 720, H = 220, padL = 44, padB = 26, bw = (W - padL) / d.weekStarts.length;
+    const hours = Math.ceil(max / 3600), stepH = hours <= 4 ? 1 : hours <= 10 ? 2 : Math.ceil(hours / 5);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="Play time per week">`;
+    for (let h = 0; h <= hours; h += stepH) {
+      const y = H - padB - (h * 3600 / (hours * 3600)) * (H - padB - 10);
+      svg += `<line x1="${padL}" x2="${W}" y1="${y}" y2="${y}" class="grid"/><text x="${padL - 8}" y="${y + 4}" class="ax" text-anchor="end">${h}h</text>`;
+    }
+    d.weekStarts.forEach((ws, i) => {
+      let y = H - padB;
+      const x = padL + i * bw + bw * 0.18, w = bw * 0.64;
+      series.forEach(sr => {
+        const v = sr.weeks[i]; if (!v) return;
+        const h = v / (hours * 3600) * (H - padB - 10);
+        y -= h;
+        svg += `<rect x="${x}" y="${y}" width="${w}" height="${Math.max(h, 1)}" fill="${sr.color}" rx="2"><title>${esc(sr.name)}: ${dur(v)}</title></rect>`;
+      });
+      const label = i === d.weekStarts.length - 1 ? 'This week' : new Date(ws * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      svg += `<text x="${padL + i * bw + bw / 2}" y="${H - 8}" class="ax" text-anchor="middle">${esc(label)}</text>`;
+      if (totals[i]) svg += `<text x="${padL + i * bw + bw / 2}" y="${y - 5}" class="ax tot" text-anchor="middle">${dur(totals[i])}</text>`;
+    });
+    svg += '</svg>';
+    const thisWeek = totals[totals.length - 1] || 0, allTime = rows.reduce((t, r) => t + r.total, 0);
+    $('#statsSub').textContent = d.since ? `Play time is broken down by week from ${new Date(d.since * 1000).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}, when the launcher started keeping play sessions.` : 'Play time is broken down by week once you\u2019ve played a game with this version of the launcher.';
+    body.innerHTML = `<div class="stat-tiles">
+        <div><b>${dur(thisWeek)}</b><span>This week</span></div>
+        <div><b>${dur(allTime)}</b><span>All time</span></div>
+        <div><b>${rows.reduce((t, r) => t + (st(r.id).playCount || 0), 0)}</b><span>Games opened</span></div>
+        <div><b>${size(d.diskTotal) || '0 MB'}</b><span>Space used by games</span></div></div>
+      <div class="chart-card"><div class="nh">Play time per week</div>${weekly.length ? svg + `<div class="legend">${series.map(x => `<span><i style="background:${x.color}"></i>${esc(x.name)}</span>`).join('')}</div>` : '<div class="muted small" style="padding:16px 0">No sessions yet. Play a game and it shows up here.</div>'}</div>
+      <div class="chart-card"><div class="nh">All games</div>
+        <table class="stbl"><thead><tr><th>Game</th><th>Played</th><th>Opened</th><th>Last played</th><th>Size on disk</th></tr></thead><tbody>
+        ${rows.map(r => { const g = game(r.id), s = st(r.id); return `<tr data-row="${esc(r.id)}"><td>${esc(g.title)}</td><td>${dur(r.total)}</td><td>${s.playCount || 0}</td><td>${ago(s.lastPlayed)}</td><td>${s.diskSize ? size(s.diskSize) : '\u2014'}</td></tr>`; }).join('')}
+        </tbody></table></div>`;
+    body.querySelectorAll('[data-row]').forEach(tr => tr.onclick = () => details(tr.dataset.row));
+  }
+
   /* ---------- changelog ---------- */
   function parseChangelog(md) {
     const rels = []; let cur = null, sec = null;
@@ -729,6 +862,7 @@
     const inst = av.filter(g => st(g.id).installed);
     const web = av.filter(isWeb).length;
     $('#abGames').textContent = `${inst.length} installed · ${av.length - web} to download · ${web} web · ${titles.length - av.length} coming soon`;
+    $('#abDisk').textContent = size(catalog.games.reduce((t, g) => t + (st(g.id).diskSize || 0), 0)) || '\u2014';
     $('#abTime').textContent = dur(av.reduce((t, g) => t + played(st(g.id)), 0));
     $('#abGamesDir').textContent = state.gamesDir || '—';
     const sw = $('#abAuto');
@@ -745,7 +879,7 @@
   /* ---------- nav ---------- */
   function renderAll() {
     renderBanner(); renderCheck();
-    if (view === 'news' || view === 'friends' || view === 'achievements') return;
+    if (view === 'news' || view === 'friends' || view === 'achievements' || view === 'stats') return;
     if (view === 'about') return renderAbout();
     renderLibrary();
     if (modalId && !$('#modal').classList.contains('hidden')) details(modalId);
@@ -753,13 +887,15 @@
   function go(v) {
     view = v;
     document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
-    $('#vLibrary').classList.toggle('hidden', v === 'news' || v === 'about' || v === 'friends' || v === 'achievements');
+    $('#vLibrary').classList.toggle('hidden', v === 'news' || v === 'about' || v === 'friends' || v === 'achievements' || v === 'stats');
+    $('#vStats').classList.toggle('hidden', v !== 'stats');
     $('#vFriends').classList.toggle('hidden', v !== 'friends');
     $('#vAchievements').classList.toggle('hidden', v !== 'achievements');
     $('#vNews').classList.toggle('hidden', v !== 'news');
     $('#vAbout').classList.toggle('hidden', v !== 'about');
     if (v === 'news') renderNews().catch(e => toast(e.message));
     else if (v === 'achievements') renderAchievements();
+    else if (v === 'stats') renderStats();
     else renderAll();
     $('#main').scrollTop = 0;
   }

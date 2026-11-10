@@ -15,6 +15,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -577,6 +578,47 @@ type storeMatch struct {
 	Family string          // package family name, e.g. PlayStack.Balatro_3wcqaesafpzfy
 	Dir    string          // install folder
 	Exes   map[string]bool // program file names from the game's manifests (lower case)
+	Path   string          // or: the exact program (games added by their .exe)
+}
+
+// A running program.
+type procInfo struct {
+	Name, Path, Family string // lower case
+}
+
+// matches counts the running programs that belong to a game.
+func (m storeMatch) matches(procs []procInfo) (int, string) {
+	dir := ""
+	if m.Dir != "" {
+		dir = strings.ToLower(filepath.Clean(m.Dir)) + string(os.PathSeparator)
+	}
+	fam, path := strings.ToLower(m.Family), strings.ToLower(filepath.Clean(m.Path))
+	n, what := 0, ""
+	for _, p := range procs {
+		switch {
+		case m.Path != "" && p.Path == path:
+			n, what = n+1, p.Name
+		case m.Path != "":
+			continue
+		case fam != "" && p.Family == fam:
+			n, what = n+1, p.Name+" (package)"
+		case dir != "" && strings.HasPrefix(p.Path, dir):
+			n, what = n+1, p.Name+" (folder)"
+		case m.Exes[p.Name]:
+			n, what = n+1, p.Name
+		}
+	}
+	return n, what
+}
+
+func storeProcesses(m storeMatch) (int, string) { return m.matches(processList()) }
+
+// matchFor says how to recognise one of the player's games while it runs.
+func matchFor(cg *customGame) storeMatch {
+	if cg.isStore() {
+		return newStoreMatch(cg.AppID, cg.Location)
+	}
+	return storeMatch{Path: cg.Path, Exes: map[string]bool{}}
 }
 
 var exeAttrRe = regexp.MustCompile(`(?i)(?:<Application\b[^>]*\bExecutable|<Executable\b[^>]*\bName)\s*=\s*"([^"]+)"`)
@@ -599,36 +641,97 @@ func newStoreMatch(appID, dir string) storeMatch {
 	return m
 }
 
-// waitForStoreGame follows a Store / Xbox game that Windows started for us:
-// it waits (up to 2 minutes) for one of the game's programs to appear, then
-// until they have all closed - or until the player says the game is closed.
-func waitForStoreGame(id string, m storeMatch, start time.Time, stop <-chan struct{}) {
-	log.Printf("%s: watching for package %s, folder %s, programs %v", id, m.Family, m.Dir, keys(m.Exes))
-	seen := false
-	quiet := 0
-	for {
-		select {
-		case <-stop:
-			log.Printf("%s: marked as closed", id)
-			return
-		case <-time.After(2 * time.Second):
+// waitUntilRunning waits (up to limit) for one of a game's programs to appear.
+func waitUntilRunning(m storeMatch, limit time.Duration) bool {
+	start := time.Now()
+	for time.Since(start) < limit {
+		time.Sleep(2 * time.Second)
+		if n, what := m.matches(processList()); n > 0 {
+			log.Printf("found running: %s", what)
+			return true
 		}
-		n, what := storeProcesses(m)
-		switch {
-		case n > 0:
-			if !seen {
-				log.Printf("%s: running (%s)", id, what)
+	}
+	return false
+}
+
+// trackRunning counts an open and the play time of a game that's running
+// (a Store / Xbox game Windows started for us, or any of the player's games
+// started outside the launcher), until its programs have all closed - or the
+// player says it's closed.
+func (a *app) trackRunning(id string, m storeMatch, how string) {
+	start := time.Now()
+	a.beginSession(id, &exec.Cmd{}, start)
+	stop := make(chan struct{})
+	a.mu.Lock()
+	a.stopWatch[id] = stop
+	a.mu.Unlock()
+	log.Printf("%s: playing (%s)", id, how)
+	exited := make(chan struct{})
+	go func() {
+		defer close(exited)
+		quiet := 0
+		for {
+			select {
+			case <-stop:
+				log.Printf("%s: marked as closed", id)
+				return
+			case <-time.After(2 * time.Second):
 			}
-			seen, quiet = true, 0
-		case seen:
-			quiet++
-			if quiet >= 2 { // gone for two checks in a row (some games restart themselves)
-				log.Printf("%s: closed", id)
+			if n, _ := m.matches(processList()); n > 0 {
+				quiet = 0
+			} else if quiet++; quiet >= 2 { // gone for two checks in a row (some games restart themselves)
 				return
 			}
-		case time.Since(start) > 2*time.Minute:
-			log.Printf("%s: none of its programs appeared", id)
-			return
+		}
+	}()
+	go func() {
+		<-exited
+		a.mu.Lock()
+		if a.stopWatch[id] == stop {
+			delete(a.stopWatch, id)
+		}
+		a.mu.Unlock()
+	}()
+	a.trackSession(id, start, exited)
+}
+
+// watchGames notices the player's games running even when they were started
+// somewhere else (the Xbox app, the Start menu, a shortcut), so their opens
+// and play time are counted too.
+func (a *app) watchGames() {
+	for {
+		time.Sleep(10 * time.Second)
+		a.mu.Lock()
+		type cand struct {
+			id string
+			m  storeMatch
+		}
+		var cands []cand
+		for _, cg := range a.set.Custom {
+			if _, st := a.starting[cg.ID]; a.running[cg.ID] == nil && !st {
+				cands = append(cands, cand{cg.ID, matchFor(cg)})
+			}
+		}
+		for id, rec := range a.set.Installs {
+			if _, st := a.starting[id]; a.running[id] == nil && !st && a.jobs[id] == nil {
+				cands = append(cands, cand{id, storeMatch{Path: filepath.Join(rec.Dir, rec.Exe)}})
+			}
+		}
+		a.mu.Unlock()
+		if len(cands) == 0 {
+			continue
+		}
+		procs := processList()
+		for _, c := range cands {
+			if n, what := c.m.matches(procs); n > 0 {
+				a.mu.Lock()
+				_, st := a.starting[c.id]
+				busy := a.running[c.id] != nil || st
+				a.mu.Unlock()
+				if !busy {
+					go a.trackRunning(c.id, c.m, "noticed "+what+" running")
+				}
+			}
 		}
 	}
 }

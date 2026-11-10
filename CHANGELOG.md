@@ -4,6 +4,23 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [2.16.0] - 2026-11-09
+
+### Added
+- Search: a search box at the top of the Library filters games by name as you type (Ctrl+F jumps to it).
+- Sort Installed by recently played, most played, or A–Z.
+- Favorites: click the star on any game (or in its details) to pin it to a Favorites section at the top of the Library.
+- Hide games you're not interested in from their details. Show hidden brings them back.
+- Desktop shortcuts: make one from a game's details. It starts the game through the launcher, so opens and play time are still counted.
+- Download queue: installing several games lines them up one at a time and shows "Queued · 2 of 4".
+- Size on disk for each installed game in its details, and the total on the About and Stats pages.
+- Stats page: play time per week for the last 8 weeks (by game), plus a table of every game you've played.
+- Recent sessions in a game's details: when you played and for how long.
+
+### Fixed
+- Xbox and Microsoft Store games are counted properly. An open and play time now count only once the game is actually running, not for the time Windows spends starting it.
+- Your added games (including Xbox / Store games) are counted even when you start them outside the launcher, from the Xbox app, the Start menu or their own shortcut.
+
 ## [2.15.0] - 2026-11-09
 
 ### Changed

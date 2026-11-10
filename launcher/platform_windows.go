@@ -607,53 +607,62 @@ type processEntry32W struct {
 
 var pGetPackageFamilyName = kernel32.NewProc("GetPackageFamilyName")
 
-// storeProcesses counts running programs that belong to a Store / Xbox game:
-// same package, inside its install folder, or one of its program names.
-func storeProcesses(m storeMatch) (int, string) {
-	dir := ""
-	if m.Dir != "" {
-		dir = strings.ToLower(filepath.Clean(m.Dir)) + `\`
-	}
+// processList lists running programs with their full path and, for Store /
+// Xbox apps, their package family name.
+func processList() []procInfo {
 	snap, _, _ := pCreateSnapshot.Call(2, 0) // TH32CS_SNAPPROCESS
 	if snap == 0 || snap == ^uintptr(0) {
-		return 0, ""
+		return nil
 	}
 	defer pCloseHandle.Call(snap)
 	var pe processEntry32W
 	pe.dwSize = uint32(unsafe.Sizeof(pe))
-	n, what := 0, ""
+	var out []procInfo
 	buf := make([]uint16, 1024)
 	for ok, _, _ := pProcess32First.Call(snap, uintptr(unsafe.Pointer(&pe))); ok != 0; ok, _, _ = pProcess32Next.Call(snap, uintptr(unsafe.Pointer(&pe))) {
-		name := strings.ToLower(syscall.UTF16ToString(pe.szExeFile[:]))
-		if m.Exes[name] {
-			n, what = n+1, name
-			continue
-		}
-		h, _, _ := pOpenProcess.Call(0x1000, 0, uintptr(pe.th32ProcessID)) // QUERY_LIMITED_INFORMATION
-		if h == 0 {
-			continue
-		}
-		matched := false
-		if m.Family != "" && pGetPackageFamilyName.Find() == nil {
-			size := uint32(len(buf))
-			if r, _, _ := pGetPackageFamilyName.Call(h, uintptr(unsafe.Pointer(&size)), uintptr(unsafe.Pointer(&buf[0]))); r == 0 {
-				if strings.EqualFold(syscall.UTF16ToString(buf[:size]), m.Family) {
-					matched, what = true, name+" (package)"
-				}
-			}
-		}
-		if !matched && dir != "" {
+		p := procInfo{Name: strings.ToLower(syscall.UTF16ToString(pe.szExeFile[:]))}
+		if h, _, _ := pOpenProcess.Call(0x1000, 0, uintptr(pe.th32ProcessID)); h != 0 { // QUERY_LIMITED_INFORMATION
 			size := uint32(len(buf))
 			if r, _, _ := pQueryImageName.Call(h, 0, uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size))); r != 0 {
-				if strings.HasPrefix(strings.ToLower(syscall.UTF16ToString(buf[:size])), dir) {
-					matched, what = true, name+" (folder)"
+				p.Path = strings.ToLower(syscall.UTF16ToString(buf[:size]))
+			}
+			if pGetPackageFamilyName.Find() == nil {
+				size = uint32(len(buf))
+				if r, _, _ := pGetPackageFamilyName.Call(h, uintptr(unsafe.Pointer(&size)), uintptr(unsafe.Pointer(&buf[0]))); r == 0 {
+					p.Family = strings.ToLower(syscall.UTF16ToString(buf[:size]))
 				}
 			}
+			pCloseHandle.Call(h)
 		}
-		pCloseHandle.Call(h)
-		if matched {
-			n++
-		}
+		out = append(out, p)
 	}
-	return n, what
+	return out
+}
+
+/* ---------- desktop shortcuts ---------- */
+
+// createShortcut puts a shortcut on the desktop (the real one, even when it's
+// moved to OneDrive) and returns its path.
+func createShortcut(name, target, args, icon, desc string) (string, error) {
+	q := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
+	script := `$ErrorActionPreference = 'Stop'
+$d = [Environment]::GetFolderPath('Desktop')
+$p = Join-Path $d (` + q(name+".lnk") + `)
+$s = (New-Object -ComObject WScript.Shell).CreateShortcut($p)
+$s.TargetPath = ` + q(target) + `
+$s.Arguments = ` + q(args) + `
+$s.WorkingDirectory = ` + q(filepath.Dir(target)) + `
+$s.IconLocation = ` + q(icon+",0") + `
+$s.Description = ` + q(desc) + `
+$s.Save()
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+Write-Output $p`
+	ps := filepath.Join(os.Getenv("WINDIR"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+	cmd := exec.Command(ps, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("couldn't make the shortcut (%s)", strings.TrimSpace(string(out)))
+	}
+	return strings.TrimSpace(string(bytes.TrimPrefix(out, []byte("\xef\xbb\xbf")))), nil
 }

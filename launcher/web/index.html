@@ -30,6 +30,7 @@
       <div class="sep"></div>
       <button data-view="friends"><span class="ni">☺</span>Friends<span class="badge soonb">SOON</span></button>
       <button data-view="achievements"><span class="ni">★</span>Achievements</button>
+      <button data-view="stats"><span class="ni">▤</span>Stats</button>
       <button data-view="news"><span class="ni">✦</span>What's New</button>
       <button data-view="about"><span class="ni">i</span>About</button>
     </nav>
@@ -43,6 +44,13 @@
   <main id="main">
     <div id="lbanner" class="hidden"></div>
     <section id="vLibrary">
+      <div class="libbar">
+        <span class="search"><input id="q" type="search" placeholder="Search games" spellcheck="false" autocomplete="off"><button id="qClear" class="hidden" title="Clear">✕</button></span>
+        <select id="sortSel" class="hidden" title="Sort">
+          <option value="recent">Recently played</option><option value="most">Most played</option><option value="az">A–Z</option>
+        </select>
+        <label class="showhid hidden" id="showHidLbl"><input type="checkbox" id="showHid"> <span id="showHidTxt">Show hidden</span></label>
+      </div>
       <div id="hero"></div>
       <div id="cats"></div>
     </section>
@@ -62,6 +70,11 @@
       <div class="ach-soon"><span class="pill soon">COMING SOON</span> Achievements for Ironite games are on the way. They'll arrive in a launcher update, so there's nothing you need to do.</div>
       <div id="achBody"></div>
     </section>
+    <section id="vStats" class="page hidden">
+      <h1>Stats</h1>
+      <p class="muted" id="statsSub">How long you've played, week by week.</p>
+      <div id="statsBody"></div>
+    </section>
     <section id="vNews" class="page hidden">
       <h1>What's New</h1>
       <p class="muted" id="newsSub"></p>
@@ -76,6 +89,7 @@
         <div class="about-row"><span>Build</span><b id="abBuild">—</b></div>
         <div class="about-row"><span>Games</span><b id="abGames">—</b></div>
         <div class="about-row"><span>Total time played</span><b id="abTime">—</b></div>
+        <div class="about-row"><span>Space used by games</span><b id="abDisk">—</b></div>
         <div class="about-row"><span>Install folder</span><b id="abDir" class="mono">—</b></div>
         <div class="about-row"><span>Games folder</span><b id="abGamesDir" class="mono">—</b></div>
       </div>
