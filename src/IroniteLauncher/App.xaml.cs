@@ -29,7 +29,7 @@ public partial class App : Application
     private DateTime _started = DateTime.UtcNow;
     private bool _exiting;
 
-    public Ironite.Launcher.MainWindow? Main => MainWindow as Ironite.Launcher.MainWindow;
+    public Ironite.Launcher.MainWindow? LauncherWindow => MainWindow as Ironite.Launcher.MainWindow;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -43,7 +43,7 @@ public partial class App : Application
         if (selfTest >= 0)
         {
             var output = selfTest + 1 < e.Args.Length ? e.Args[selfTest + 1] : Path.Combine(Path.GetTempPath(), "ironite-selftest.txt");
-            _ = Dispatcher.InvokeAsync(async () => Exit(await SelfTest.RunAsync(output)));
+            _ = Dispatcher.InvokeAsync(async () => Quit(await SelfTest.RunAsync(output)));
             return;
         }
         // Screenshot tour used by CI: IroniteLauncher.exe --tour <folder>
@@ -51,7 +51,7 @@ public partial class App : Application
         if (tour >= 0)
         {
             var dir = tour + 1 < e.Args.Length ? e.Args[tour + 1] : Path.Combine(Path.GetTempPath(), "ironite-tour");
-            _ = Dispatcher.InvokeAsync(async () => Exit(await Tour.RunAsync(dir)));
+            _ = Dispatcher.InvokeAsync(async () => Quit(await Tour.RunAsync(dir)));
             return;
         }
 
@@ -117,17 +117,17 @@ public partial class App : Application
         _idle.Tick += (_, _) =>
         {
             if (_exiting || DateTime.UtcNow - _started < TimeSpan.FromSeconds(5)) return;
-            if (Main is { IsVisible: true }) return;
+            if (LauncherWindow is { IsVisible: true }) return;
             if (Core.GamesRunning() || Core.Busy()) return;
             Log.Info("window closed and nothing running, exiting");
-            Exit();
+            Quit();
         };
         _idle.Start();
     }
 
     public void ShowWindow()
     {
-        if (Main == null)
+        if (LauncherWindow == null)
         {
             var w = new Ironite.Launcher.MainWindow();
             MainWindow = w;
@@ -135,7 +135,7 @@ public partial class App : Application
         }
         else
         {
-            var w = Main;
+            var w = LauncherWindow;
             if (!w.IsVisible) w.Show();
             if (w.WindowState == WindowState.Minimized) w.WindowState = WindowState.Normal;
             w.Activate();
@@ -151,7 +151,7 @@ public partial class App : Application
         try
         {
             Core.Launch(id);
-            Main?.Refresh(force: true);
+            LauncherWindow?.Refresh(force: true);
         }
         catch (Exception ex)
         {
@@ -238,13 +238,13 @@ public partial class App : Application
             throw;
         }
         Log.Info($"started launcher update {setup}; exiting");
-        Exit();
+        Quit();
     }
 
     /// <summary>Set while the launcher is quitting, so closing the window really closes it.</summary>
     public static bool IsExiting { get; private set; }
 
-    public void Exit(int code = 0)
+    public void Quit(int code = 0)
     {
         _exiting = true;
         IsExiting = true;

@@ -270,7 +270,9 @@ public partial class MainWindow
         var thisWeek = totals.LastOrDefault();
         var allTime = rows.Sum(r => r.Total);
         var tiles = new UniformGrid { Columns = 4, MaxWidth = 900, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 18, 0, 18) };
-        foreach (var (v, l) in new[] { (Dur(thisWeek), "This week"), (Dur(allTime), "All time"), (rows.Sum(r => St(r.Id).PlayCount).ToString(), "Games opened"), (Size(Core.DiskTotal()) is { Length: > 0 } d ? d : "0 MB", "Space used by games") })
+        var disk = Size(Core.DiskTotal());
+        if (disk.Length == 0) disk = "0 MB";
+        foreach (var (v, l) in new[] { (Dur(thisWeek), "This week"), (Dur(allTime), "All time"), (rows.Sum(r => St(r.Id).PlayCount).ToString(), "Games opened"), (disk, "Space used by games") })
             tiles.Children.Add(new Border
             {
                 BorderBrush = Res("Line"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(16, 14, 16, 14),
@@ -521,7 +523,8 @@ public partial class MainWindow
         AboutRow(info, "Build", App.BuildText);
         AboutRow(info, "Games", $"{inst} installed · {av.Count - web - own} to download · {web} web · {titles.Count - av.Count} coming soon" + (own > 0 ? $" · {own} of your own" : ""));
         AboutRow(info, "Total time played", Dur(av.Sum(g => St(g.Id).PlaySeconds)));
-        AboutRow(info, "Space used by games", Size(Core.DiskTotal()) is { Length: > 0 } d ? d : "—");
+        var used = Size(Core.DiskTotal());
+        AboutRow(info, "Space used by games", used.Length > 0 ? used : "—");
         AboutRow(info, "Install folder", AppPaths.InstallDir, mono: true, open: () => Platform.OpenFolder(AppPaths.InstallDir));
         AboutRow(info, "Games folder", AppPaths.Games, mono: true, open: () => Platform.OpenFolder(AppPaths.Games));
         AboutRow(info, "Log", AppPaths.Log, mono: true, open: () => Platform.OpenUrl(AppPaths.Log));
