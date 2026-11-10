@@ -97,7 +97,7 @@ public static class Ui
         // Badges over cover art get a solid dark backing so they read on any colour.
         var inner = new Border
         {
-            Background = B(bg), BorderBrush = B(line), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), Padding = new Thickness(9, 5, 9, 5),
+            Background = B(bg), BorderBrush = B(line), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), Padding = new Thickness(9, 5, 9, 5), HorizontalAlignment = HorizontalAlignment.Left,
             Child = T(Track(text), 10.5, B(fg), FontWeights.Bold, true),
         };
         if (!solid) return inner;

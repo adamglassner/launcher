@@ -191,13 +191,6 @@
     <Setter Property="Height" Value="38" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-    <Style.Triggers>
-      <Trigger Property="AcceptsReturn" Value="True">
-        <Setter Property="Height" Value="Auto" />
-        <Setter Property="Padding" Value="9,8" />
-        <Setter Property="VerticalContentAlignment" Value="Top" />
-      </Trigger>
-    </Style.Triggers>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="TextBox">
@@ -210,6 +203,13 @@
         </ControlTemplate>
       </Setter.Value>
     </Setter>
+    <Style.Triggers>
+      <Trigger Property="AcceptsReturn" Value="True">
+        <Setter Property="Height" Value="Auto" />
+        <Setter Property="Padding" Value="9,8" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+      </Trigger>
+    </Style.Triggers>
   </Style>
   <Style TargetType="PasswordBox">
     <Setter Property="Background" Value="{StaticResource InputBg}" />
