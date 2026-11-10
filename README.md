@@ -1,83 +1,56 @@
 # Ironite Launcher
 
-The Windows launcher for Ironite games. It works like a small game store: every
-game lives in its own GitHub repository, the launcher installs the game from that
-repository's latest release, and it keeps installed games (and itself) up to date.
+The launcher for Ironite games on Windows 10/11 (x64). It installs each game from its own GitHub
+repository's releases, keeps them up to date, starts them and tracks play time, and updates itself from
+this repository's releases.
 
-**Download:** [latest release](../../releases/latest) → `IroniteLauncher-Setup-<version>.exe`.
-Installed launchers update themselves.
+Built the same way as Bytehawk Launcher: **C# / WPF on .NET 8**, published as a self-contained single-file
+exe, and installed with **Inno Setup 6**.
 
-## How it works
+## Features
 
-- **Library.** The game list is [`launcher/web/games.json`](launcher/web/games.json).
-  Installed launchers also read the copy on `main` here, so a game added to that
-  file shows up without a launcher update (cover art for a brand-new game still
-  needs a launcher release; until then it gets a generic cover).
-- **Installing.** For a game with a `repo`, the launcher reads
-  `GET /repos/<repo>/releases/latest` and downloads the release's
-  `*-windows.zip` (unpacked into `%LOCALAPPDATA%\Ironite\Launcher\Games\<bundle>\<version>`)
-  or, if there's no zip, its `*Setup*.exe` (NSIS or Inno Setup, run silently into
-  `Games\<bundle>\app`). Downloads are checked against GitHub's SHA-256 digests.
-- **Updating games.** The launcher checks every repository when it starts and every
-  30 minutes (cached with ETags, so it stays within GitHub's anonymous rate limit).
-  A newer release of an installed game is downloaded and installed automatically,
-  never while the game is running. Automatic updates can be turned off on the About page.
-- **Coming soon.** A game without a `repo`, or whose repository has no published
-  release yet, is shown as Coming Soon.
-- **Demos.** `"demo": true` marks a game as a demo (Rewind Life): it gets a DEMO
-  badge and "Install Demo" / "Play Demo" buttons.
-- **Updating the launcher.** The launcher checks this repository's latest release. When
-  it's newer, a banner offers to update; the launcher downloads
-  `IroniteLauncher-Setup-<version>.exe`, runs it with `/S /relaunch` and exits; setup
-  closes the old launcher, installs the new one and opens it again.
+- Library with a featured carousel, categories, search (Ctrl+F), favorites and hidden games
+- Install, update (automatically, every 30 minutes) and uninstall games from GitHub Releases, one download at a time
+- Play tracking: opens, play time, sessions (also for games started outside the launcher), weekly Stats page
+- Non-Ironite games: add any .exe or Xbox / Microsoft Store game, with categories, details and cover art
+- Steam and Xbox (OpenXBL) achievements for those games
+- Desktop shortcuts that start a game through the launcher
+- Launcher updates like Bytehawk Launcher: download the new setup, run it silently, reopen
 
-## Game repositories
+## Data
 
-| Game | Repository | Release file |
-| --- | --- | --- |
-| Klondike | [adamglassner/klondike](https://github.com/adamglassner/klondike) | `Klondike-<v>-windows.zip` |
-| Texas Hold'em | [adamglassner/texasholdem](https://github.com/adamglassner/texasholdem) | `TexasHoldem-<v>-windows.zip` |
-| Blackjack | [adamglassner/blackjack](https://github.com/adamglassner/blackjack) | `Blackjack-<v>-windows.zip` |
-| Go Fish | [adamglassner/gofish](https://github.com/adamglassner/gofish) | `GoFish-<v>-windows.zip` |
-| Old Maid | [adamglassner/oldmaid](https://github.com/adamglassner/oldmaid) | `OldMaid-<v>-windows.zip` |
-| Euchre | [adamglassner/euchre](https://github.com/adamglassner/euchre) | `Euchre-<v>-windows.zip` |
-| Hearts | [adamglassner/hearts](https://github.com/adamglassner/hearts) | `Hearts-<v>-windows.zip` |
-| Gin Rummy | [adamglassner/ginrummy](https://github.com/adamglassner/ginrummy) | `GinRummy-<v>-windows.zip` |
-| Cribbage | [adamglassner/cribbage](https://github.com/adamglassner/cribbage) | `Cribbage-<v>-windows.zip` |
-| Spades | [adamglassner/spades](https://github.com/adamglassner/spades) | `Spades-<v>-windows.zip` |
-| Maple Lane Finds | [adamglassner/maple-lane-finds](https://github.com/adamglassner/maple-lane-finds) | `MapleLaneFinds-Setup-<v>.exe` |
-| Solar Siege | [adamglassner/Solar-Siege](https://github.com/adamglassner/Solar-Siege) | `SolarSiege-<v>-windows.zip` |
-| Snugfit | [adamglassner/snugfit](https://github.com/adamglassner/snugfit) | `Snugfit-Setup-<v>.exe` |
-| Chess | [adamglassner/chess](https://github.com/adamglassner/chess) | `Chess-<v>-windows.zip` |
-| Checkers | [adamglassner/checkers](https://github.com/adamglassner/checkers) | `Checkers-<v>-windows.zip` |
-| Mahjong | [adamglassner/mahjong](https://github.com/adamglassner/mahjong) | `Mahjong-<v>-windows.zip` |
-| The Appalachian Trail | [adamglassner/appalachiantrail](https://github.com/adamglassner/appalachiantrail) | `AppalachianTrail-<v>-Windows-Portable.zip` |
-| Rewind Life (demo) | [adamglassner/RewindLife](https://github.com/adamglassner/RewindLife) | `RewindLife-<v>-windows.zip` |
+| Where | What |
+| --- | --- |
+| `%APPDATA%\Ironite\Launcher\settings.json` | play stats, installs, favorites, hidden, your own games, accounts |
+| `%APPDATA%\Ironite\Launcher\CustomIcons\` | icons and cover art for your own games |
+| `%APPDATA%\Ironite\Launcher\WebGames\` | browser profiles (saves) for web games |
+| `%LOCALAPPDATA%\Ironite\Launcher\Games\` | downloaded games |
+| `%LOCALAPPDATA%\Ironite\Launcher\releases.json` | cached GitHub releases and game catalog |
+| `%TEMP%\IroniteLauncher.log` | log |
 
-Each game repository has a Release workflow that publishes a new release when its
-version changes, so releasing a game update is: bump its version, add a changelog
-entry, push to `main`. (Maple Lane Finds keeps its own draft-then-publish flow.)
-Repositories must be **public**: the launcher downloads without signing in.
+These are the same files launcher 2.x used, so updating from 2.x keeps everything.
 
-To add a game: give it a repository with releases like the ones above, then add an
-entry to `games.json` with `repo`, `bundle` (its folder name), `exe` and `category`.
+## Game catalog
+
+`catalog/games.json` lists the games (schema 2). Launchers read the latest copy from this repository, so new
+games appear without a launcher update; covers for new games go in `covers/<id>.jpg` (480×600) and, for the
+featured carousel, `covers/<id>-hero.jpg` (1600×540). `launcher/web/games.json` is a copy kept for 2.x launchers.
 
 ## Building
 
-`bash build.sh` (Go 1.24+ and NSIS 3) builds `dist/IroniteLauncher-Setup-<version>.exe`.
-The NSIS plugins it uses (nsProcess, StdUtils) are in `installer/plugins`.
+```powershell
+.\build.ps1                  # version from src\IroniteLauncher\IroniteLauncher.csproj
+.\build.ps1 -SkipInstaller   # exe only
+```
 
-## Releasing the launcher
+Needs the .NET 8 SDK and Inno Setup 6. Output: `dist\IroniteLauncher.exe` and `dist\IroniteLauncher-Setup-<version>.exe`.
 
-Bump `VERSION`, add a section at the top of `CHANGELOG.md`, push to `main`. The
-[Release workflow](.github/workflows/release.yml) builds the installer and publishes
-`v<version>`; installed launchers offer the update the next time they check.
+`IroniteLauncher.exe --self-test <file>` runs the headless checks, and `--tour <folder>` installs, plays and
+uninstalls a real game and saves screenshots of every page.
 
-## Testing locally
+## Releasing
 
-`IRONITE_DEV=1` serves the UI and prints its URL instead of opening a window.
-`IRONITE_GITHUB_API=<url>` points the launcher at a mock GitHub API,
-`IRONITE_CATALOG_URL=off` skips the published catalog, and `IRONITE_CACHE_DIR`
-moves the games and download cache.
+Bump `<Version>` in the .csproj, add a `CHANGELOG.md` entry, and push to `main`. GitHub Actions builds,
+tests and publishes the release (the Setup .exe is what installed launchers update from).
 
-(c) 2026 Ironite. All rights reserved.
+© 2026 Ironite. All rights reserved.

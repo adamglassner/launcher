@@ -1,0 +1,72 @@
+<Window x:Class="Ironite.Launcher.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Ironite Launcher" Width="1320" Height="860" MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen" Background="{StaticResource Bg}" Foreground="{StaticResource Text}"
+        FontFamily="{StaticResource Body}" FontSize="14" Icon="pack://application:,,,/Assets/icon.ico"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Ideal">
+  <Grid x:Name="Root">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="232" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+
+    <!-- Sidebar -->
+    <Border Grid.Column="0" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+      <Border.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+          <GradientStop Color="#171a21" Offset="0" /><GradientStop Color="#111318" Offset="1" />
+        </LinearGradientBrush>
+      </Border.Background>
+      <DockPanel Margin="14,22,14,16">
+        <StackPanel DockPanel.Dock="Top" Margin="10,2,10,22">
+          <Image Source="pack://application:,,,/Assets/ironite-logo.png" Width="150" HorizontalAlignment="Left" RenderOptions.BitmapScalingMode="HighQuality" />
+          <TextBlock x:Name="BrandSub" Margin="0,8,0,0" FontSize="11.5" Foreground="#9fc7b5" Text="LAUNCHER" />
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Margin="10,10,10,0">
+          <WrapPanel x:Name="CheckLine" Margin="0,0,0,8" MinHeight="18" />
+          <Button x:Name="VerSide" Style="{StaticResource BareButton}" HorizontalAlignment="Left" Margin="0,0,0,6" ToolTip="What's New">
+            <Border BorderBrush="#59e8873a" BorderThickness="1" CornerRadius="999" Padding="10,3">
+              <TextBlock x:Name="VerSideText" FontFamily="{StaticResource Display}" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource Ember2}" Text="v—" />
+            </Border>
+          </Button>
+          <TextBlock FontSize="12" Foreground="{StaticResource Muted}" Text="© 2026 Ironite" />
+        </StackPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel x:Name="Nav" />
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+
+    <!-- Main area -->
+    <ScrollViewer x:Name="MainScroll" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+      <StackPanel x:Name="Main" Margin="34,26,34,40" />
+    </ScrollViewer>
+
+    <!-- Dialogs -->
+    <Grid x:Name="Veil" Grid.ColumnSpan="2" Background="#AD06070A" Visibility="Collapsed">
+      <Border x:Name="Dlg" Width="680" Margin="20"
+              Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="18"
+              HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Border.Effect><DropShadowEffect BlurRadius="80" ShadowDepth="30" Direction="270" Opacity="0.5" /></Border.Effect>
+        <Grid x:Name="DlgGrid">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Border x:Name="DlgArt" Grid.Column="0" Background="#111111" CornerRadius="17,0,0,17" ClipToBounds="True" />
+          <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel x:Name="DlgBody" Margin="24" />
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <!-- Toast -->
+    <Border x:Name="Toast" Grid.ColumnSpan="2" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,22" MaxWidth="720"
+            Background="#2a2f3a" BorderBrush="#3b4252" BorderThickness="1" CornerRadius="10" Padding="18,11" Visibility="Collapsed" IsHitTestVisible="False">
+      <Border.Effect><DropShadowEffect BlurRadius="30" ShadowDepth="10" Direction="270" Opacity="0.4" /></Border.Effect>
+      <TextBlock x:Name="ToastText" TextWrapping="Wrap" Foreground="{StaticResource Text}" />
+    </Border>
+  </Grid>
+</Window>

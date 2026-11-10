@@ -1,0 +1,197 @@
+name: Build, test and release
+
+# - Every push: build the exe + installer on Windows, run the self-test and the screenshot tour.
+# - Push to main with a <Version> in the .csproj that has no release yet (or push a tag like v3.0.1):
+#   the same, then publish GitHub Release v<version> with the Setup .exe and the portable exe.
+#   Installed launchers (3.x and 2.x) check this repo's latest release and offer the update.
+on:
+  push:
+    branches: [main, 'wpf-*']
+    tags: ['v*.*.*']
+    paths-ignore: ['catalog/**', 'covers/**', 'launcher/web/games.json']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Work out version
+        id: ver
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $v = $env:GITHUB_REF_NAME.Substring(1)
+          } else {
+            $v = ([xml](Get-Content src/IroniteLauncher/IroniteLauncher.csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          # Release when a tag was pushed, or when main has a version that hasn't been released yet
+          $release = 'false'
+          if ($env:GITHUB_REF -like 'refs/tags/v*') { $release = 'true' }
+          elseif ($env:GITHUB_EVENT_NAME -eq 'push' -and $env:GITHUB_REF -eq 'refs/heads/main') {
+            git fetch --tags --quiet
+            if (-not (git tag -l "v$v")) { $release = 'true' }
+          }
+          "release=$release" >> $env:GITHUB_OUTPUT
+          Write-Host "Version $v, release: $release"
+
+      - name: Install Inno Setup if needed
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+
+      - name: Build exe + installer
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'build.log'
+          $ok = $true
+          try { ./build.ps1 -Version ${{ steps.ver.outputs.version }} *>&1 | Tee-Object -FilePath $log } catch { $ok = $false; "$_" | Add-Content $log }
+          if (-not $ok -or $LASTEXITCODE -ne 0) {
+            # Surface errors as annotations (visible on the run page without signing in)
+            $errs = Select-String -Path $log -Pattern 'error|failed|exception' | Select-Object -First 40
+            if (-not $errs) { $errs = Get-Content $log -Tail 30 }
+            foreach ($e in $errs) { Write-Host "::error::$(($e -replace '%','%25') -replace '\r?\n',' ')" }
+            exit 1
+          }
+
+      - name: Self-test (2.x data, catalog, covers, zip install, GitHub, real download, Windows)
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'selftest.txt'
+          $p = Start-Process dist/IroniteLauncher.exe -ArgumentList '--self-test', "`"$out`"" -Wait -PassThru
+          Get-Content $out | Tee-Object -Variable lines | Write-Host
+          "## Self-test`n``````n$($lines -join "`n")`n``````" >> $env:GITHUB_STEP_SUMMARY
+          if ($p.ExitCode -ne 0) { throw "Self-test failed ($($p.ExitCode) failures)" }
+
+      - name: Tour (install, play and uninstall a real game; screenshots of every page)
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'tour'
+          $p = Start-Process dist/IroniteLauncher.exe -ArgumentList '--tour', "`"$dir`"" -PassThru
+          if (-not $p.WaitForExit(900000)) { Stop-Process -Id $p.Id -Force; throw 'Tour timed out' }
+          New-Item -ItemType Directory -Force screenshots | Out-Null
+          Copy-Item "$dir\*.png" screenshots -ErrorAction SilentlyContinue
+          Copy-Item "$dir\tour.txt", "$dir\launcher.log" screenshots -ErrorAction SilentlyContinue
+          $lines = Get-Content "$dir\tour.txt"
+          $lines | Write-Host
+          "## Tour`n``````n$($lines -join "`n")`n``````" >> $env:GITHUB_STEP_SUMMARY
+          if ($p.ExitCode -ne 0) { throw "Tour failed ($($p.ExitCode) failures)" }
+
+      - name: Installer test (fresh install, silent update, uninstall)
+        shell: pwsh
+        run: |
+          $v = '${{ steps.ver.outputs.version }}'
+          $setup = Resolve-Path "dist/IroniteLauncher-Setup-$v.exe"
+          $log = Join-Path $env:RUNNER_TEMP 'setup.log'
+          $p = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=`"$log`"" -PassThru
+          $p.WaitForExit()
+          if ($p.ExitCode -ne 0) { throw "Setup failed ($($p.ExitCode))" }
+          $exe = "${env:ProgramFiles}\Ironite\Launcher\IroniteLauncher.exe"
+          if (-not (Test-Path $exe)) { throw "Not installed at $exe" }
+          $fv = (Get-Item $exe).VersionInfo.ProductVersion
+          Write-Host "Installed $exe ($fv)"
+          # The launcher's own update path: /SILENT /RELAUNCH=1 must reinstall and start the launcher again.
+          $p = Start-Process $setup -ArgumentList '/SILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CLOSEAPPLICATIONS', '/RELAUNCH=1', "/LOG=`"$log.2`"" -PassThru
+          # (Start-Process -Wait would also wait for the launcher setup starts again)
+          $p.WaitForExit()
+          if ($p.ExitCode -ne 0) { throw "Update setup failed ($($p.ExitCode))" }
+          Start-Sleep -Seconds 8
+          $running = Get-Process IroniteLauncher -ErrorAction SilentlyContinue
+          "## Installer`n- Installed $fv to $exe`n- Silent update relaunched the launcher: $([bool]$running)" >> $env:GITHUB_STEP_SUMMARY
+          if (-not $running) { throw 'The launcher was not started again after the update' }
+          $running | Stop-Process -Force
+          $un = "${env:ProgramFiles}\Ironite\Launcher\unins000.exe"
+          $p = Start-Process $un -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru
+          $p.WaitForExit()
+          for ($i = 0; $i -lt 60 -and (Test-Path $exe); $i++) { Start-Sleep -Milliseconds 500 }
+          if (Test-Path $exe) { throw 'Uninstall left the launcher behind' }
+          "- Uninstalled cleanly" >> $env:GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IroniteLauncher-${{ steps.ver.outputs.version }}
+          path: |
+            dist/IroniteLauncher.exe
+            dist/IroniteLauncher-Setup-*.exe
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: screenshots/
+          if-no-files-found: ignore
+
+      - name: Release notes from CHANGELOG.md
+        if: steps.ver.outputs.release == 'true'
+        shell: pwsh
+        run: |
+          $v = '${{ steps.ver.outputs.version }}'
+          $lines = Get-Content CHANGELOG.md
+          $start = ($lines | Select-String -Pattern "^## \[$([regex]::Escape($v))\]").LineNumber
+          $notes = @()
+          for ($i = $start; $i -lt $lines.Count; $i++) { if ($lines[$i] -match '^## ') { break }; $notes += $lines[$i] }
+          $notes += ''
+          $notes += '---'
+          $notes += "Installed launchers update themselves. New here? Download **IroniteLauncher-Setup-$v.exe** below and run it. **IroniteLauncher.exe** is a portable copy (no install needed)."
+          $notes -join "`n" | Set-Content notes.md -Encoding utf8
+
+      - name: Publish GitHub Release
+        if: steps.ver.outputs.release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          name: Ironite Launcher ${{ steps.ver.outputs.version }}
+          body_path: notes.md
+          files: |
+            dist/IroniteLauncher-Setup-*.exe
+            dist/IroniteLauncher.exe
+
+      # Keep the latest run's logs and screenshots on the ci-logs branch so they can be read with plain git
+      # (Actions logs need a signed-in browser). Force-pushed, so only the latest run is kept.
+      - name: Save logs to ci-logs branch
+        if: always() && github.event_name == 'push'
+        shell: pwsh
+        run: |
+          $d = Join-Path $env:RUNNER_TEMP 'ci-logs'
+          New-Item -ItemType Directory -Force $d | Out-Null
+          foreach ($f in 'build.log', 'selftest.txt', 'setup.log', 'setup.log.2') {
+            $p = Join-Path $env:RUNNER_TEMP $f
+            if (Test-Path $p) { Copy-Item $p $d }
+          }
+          if (Test-Path screenshots) { Copy-Item screenshots $d -Recurse }
+          $appLog = Join-Path $env:TEMP 'IroniteLauncher.log'
+          if (Test-Path $appLog) { Copy-Item $appLog $d }
+          @(
+            "commit=${{ github.sha }}"
+            "ref=${{ github.ref }}"
+            "status=${{ job.status }}"
+            "version=${{ steps.ver.outputs.version }}"
+            "release=${{ steps.ver.outputs.release }}"
+            "run=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            "time=$(Get-Date -Format o)"
+          ) | Set-Content (Join-Path $d 'status.txt')
+          Set-Location $d
+          git init -q -b ci-logs
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -q -m "CI logs for ${{ github.sha }} (${{ job.status }})"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-logs

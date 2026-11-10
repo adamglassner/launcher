@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>false</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>IroniteLauncher</AssemblyName>
+    <RootNamespace>Ironite.Launcher</RootNamespace>
+    <ApplicationIcon>..\..\assets\icon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <Version>3.0.0</Version>
+    <AssemblyVersion>3.0.0.0</AssemblyVersion>
+    <FileVersion>3.0.0.0</FileVersion>
+    <InformationalVersion>3.0.0</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Product>Ironite Launcher</Product>
+    <AssemblyTitle>Ironite Launcher</AssemblyTitle>
+    <Company>Ironite</Company>
+    <Authors>Ironite</Authors>
+    <Copyright>© 2026 Ironite</Copyright>
+
+    <!-- Windows 10/11 x64, self-contained single-file -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <DebugType>embedded</DebugType>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="..\..\assets\icon.ico" Link="Assets\icon.ico" />
+    <Resource Include="..\..\assets\icon-1024.png" Link="Assets\icon-1024.png" />
+    <Resource Include="..\..\assets\ironite-logo.png" Link="Assets\ironite-logo.png" />
+    <Resource Include="..\..\covers\*.jpg" Link="Covers\%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\catalog\games.json" Link="Data\games.json" LogicalName="games.json" />
+    <EmbeddedResource Include="..\..\CHANGELOG.md" Link="Data\CHANGELOG.md" LogicalName="CHANGELOG.md" />
+  </ItemGroup>
+
+</Project>

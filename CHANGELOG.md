@@ -4,6 +4,19 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.0.0] - 2026-11-10
+
+### Changed
+- Ironite Launcher has been rebuilt as a native Windows app, made the same way as Bytehawk Launcher (C# and WPF on .NET 8, installed with Inno Setup). It runs in its own window instead of a browser window, and no longer needs Microsoft Edge to show the launcher (web games still open in Edge or Chrome).
+- It looks the same as before: the same library, featured banners, covers, colours and pages.
+- Everything carries over from 2.x: your installed games, play time, sessions, favorites, hidden games, your own games (including Xbox and Microsoft Store games), cover art, achievement accounts and settings.
+- Launcher updates work like Bytehawk Launcher's: Update now downloads the new installer, which runs on its own with just its progress bar and opens the launcher again when it's done.
+- The installer replaces the 2.x install in place. Uninstalling no longer needs the old uninstaller.
+
+### Added
+- Open game folder in an installed game's details, and links to the install folder, games folder and log on the About page.
+- New games added to the catalog after this version get their covers automatically.
+
 ## [2.16.0] - 2026-11-09
 
 ### Added
