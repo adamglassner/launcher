@@ -1,0 +1,17 @@
+Ironite Launcher 3.5.0 tour 2026-11-11 23:20:41Z
+PASS  Starts on 2.x data
+PASS  Checked GitHub
+PASS  Games available from GitHub  — 24 available
+PASS  Installs Klondike from GitHub  — v2.1.0
+PASS  Shows the game running
+PASS  Counts the open and the session  — opened 1, 11s, 1 session(s)
+PASS  Friends: register and sign in  — AdamG, 3 friends
+PASS  Friends: shows what friends are playing
+PASS  Friends: a friend's profile and games  — 4 games
+PASS  Friends: save your profile
+PASS  Friends: shares played games  — 6 games
+PASS  Friends: sign out
+PASS  Uninstalls
+PASS  Keeps settings it doesn't know
+PASS  Keeps play history
+ALL PASSED

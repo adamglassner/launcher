@@ -1,0 +1,56 @@
+﻿2026-11-11 23:22:28.736   Log opened. (Time zone: UTC+00:00)
+2026-11-11 23:22:28.736   Setup version: Inno Setup version 6.7.1
+2026-11-11 23:22:28.736   Original Setup EXE: D:\a\launcher\launcher\dist\IroniteLauncher-Setup-3.5.0.exe
+2026-11-11 23:22:28.736   Setup command line: /SL5="$9004E,62539065,868352,D:\a\launcher\launcher\dist\IroniteLauncher-Setup-3.5.0.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG="D:\a\_temp\setup.log"
+2026-11-11 23:22:28.736   Compatibility mode: Yes (ElevateCreateProcess)
+2026-11-11 23:22:28.736   Windows version: 10.0.26100
+2026-11-11 23:22:28.736   Windows architecture: x64 (64-bit)
+2026-11-11 23:22:28.736   Machine types supported by system: x86 x64
+2026-11-11 23:22:28.736   User privileges: Administrative
+2026-11-11 23:22:28.739   Administrative install mode: Yes
+2026-11-11 23:22:28.739   Install mode root key: HKEY_LOCAL_MACHINE
+2026-11-11 23:22:28.739   64-bit install mode: Yes
+2026-11-11 23:22:28.739   RedirectionGuard status for current process: Enabled in enforcing mode
+2026-11-11 23:22:28.740   Created protected temporary directory: C:\Users\RUNNER~1\AppData\Local\Temp\is-PAFH51G7YX.tmp
+2026-11-11 23:22:29.186   Found 1 files to register with RestartManager.
+2026-11-11 23:22:29.186   Calling RestartManager's RmGetList.
+2026-11-11 23:22:29.189   RmGetList finished successfully.
+2026-11-11 23:22:29.189   RestartManager found no applications using one of our files.
+2026-11-11 23:22:29.192   Starting the installation process.
+2026-11-11 23:22:29.193   Creating directory: C:\Program Files\Ironite
+2026-11-11 23:22:29.194   Creating directory: C:\Program Files\Ironite\Launcher
+2026-11-11 23:22:29.194   Directory for uninstall files: C:\Program Files\Ironite\Launcher
+2026-11-11 23:22:29.194   Creating new uninstall log: C:\Program Files\Ironite\Launcher\unins000.dat
+2026-11-11 23:22:29.269   -- File entry --
+2026-11-11 23:22:29.271   Dest filename: C:\Program Files\Ironite\Launcher\unins000.exe
+2026-11-11 23:22:29.271   Non-default bitness: 32-bit
+2026-11-11 23:22:29.352   Time stamp of our file: 2026-11-11 23:22:28.431
+2026-11-11 23:22:29.352   Installing the file.
+2026-11-11 23:22:29.362   Successfully installed the file.
+2026-11-11 23:22:29.362   -- File entry --
+2026-11-11 23:22:29.362   Dest filename: C:\Program Files\Ironite\Launcher\IroniteLauncher.exe
+2026-11-11 23:22:29.362   Time stamp of our file: 2026-11-11 23:20:22.000
+2026-11-11 23:22:29.362   Installing the file.
+2026-11-11 23:22:30.820   Successfully installed the file.
+2026-11-11 23:22:30.820   -- Icon entry --
+2026-11-11 23:22:30.820   Dest filename: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Ironite\Ironite Launcher.lnk
+2026-11-11 23:22:30.820   Creating directory: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Ironite
+2026-11-11 23:22:30.915   Creating the icon.
+2026-11-11 23:22:31.199   Successfully created the icon.
+2026-11-11 23:22:31.203   -- Icon entry --
+2026-11-11 23:22:31.203   Dest filename: C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Ironite\Uninstall Ironite Launcher.lnk
+2026-11-11 23:22:31.203   Creating the icon.
+2026-11-11 23:22:31.207   Successfully created the icon.
+2026-11-11 23:22:31.209   -- Icon entry --
+2026-11-11 23:22:31.209   Dest filename: C:\Users\Public\Desktop\Ironite Launcher.lnk
+2026-11-11 23:22:31.209   Creating the icon.
+2026-11-11 23:22:31.211   Successfully created the icon.
+2026-11-11 23:22:31.215   Saving uninstall information.
+2026-11-11 23:22:31.216   Creating new uninstall key: HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Uninstall\{7A3F1C2E-4B5D-4E8F-9A1B-2C3D4E5F6A7B}_is1
+2026-11-11 23:22:31.216   Writing uninstall key values.
+2026-11-11 23:22:31.216   Detected previous non administrative install? No
+2026-11-11 23:22:31.216   Detected previous administrative 32-bit install? No
+2026-11-11 23:22:31.228   Installation process succeeded.
+2026-11-11 23:22:31.228   Need to restart Windows? No
+2026-11-11 23:22:31.230   Deinitializing Setup.
+2026-11-11 23:22:31.236   Log closed.

@@ -1,0 +1,65 @@
+Ironite Launcher 3.5.0 self-test 2026-11-11 23:20:31Z
+PASS  Version is set  — 3.5.0
+PASS  Version 1.10.0 > 1.9.2
+PASS  Version v2.0 > 1.99
+PASS  Version 1.0.0 == v1.0.0
+PASS  3.0.0 is newer than 2.16.0
+PASS  Guess title (_x64)  — Supertuxkart
+PASS  Guess title (CamelCase, Shipping)  — My Cool Game
+PASS  Steam profile link
+PASS  Steam ID64
+PASS  Steam bad text
+PASS  Reads an Ironite game's achievements  — 2/4 
+PASS  Ironite achievement icon resolves to the file  — file:///C:/Users/runneradmin/AppData/Local/Temp/ironite-selftest-16fa9126/achievements/solarsiege/sunrise.png
+PASS  Ironite counting achievement keeps its progress
+PASS  Secret Ironite achievements stay secret
+PASS  Ironite icon paths can't leave the folder
+PASS  A game without a file has no Ironite achievements
+PASS  A broken file shows an error, not a crash
+PASS  Safe file name
+PASS  Picks the Windows zip  — Game-1.2.0-windows.zip
+PASS  Falls back to the setup program  — Game-1.2.0-Setup.exe
+PASS  Launcher setup asset
+PASS  2.x stats
+PASS  2.x installs
+PASS  2.x prefs
+PASS  2.x own games
+PASS  2.x accounts
+PASS  Unknown settings are kept
+PASS  Writes 2.x field names
+PASS  No nulls written
+PASS  2.x release cache  — v1.4.0
+PASS  Built-in catalog  — 24 games
+PASS  Every game has a cover  — 24 covers
+PASS  Featured banners  — 12 banners
+PASS  Logo and icon
+PASS  Changelog has this version
+PASS  Core: catalog + own games
+PASS  Core: own game in a launcher category
+PASS  Core: missing install forgotten  — the 2.x path doesn't exist here
+PASS  Core: stats
+PASS  Core: web game available
+PASS  Core: weekly stats
+PASS  Zip: unpacked without its top folder  — C:\Users\runneradmin\AppData\Local\Temp\ironite-selftest-16fa9126\cache\Games\TestGame\1.0.0
+PASS  Zip: record
+PASS  Zip: old version removed
+PASS  Legacy install found
+PASS  Latest tag from github.com (no API)  — v2.1.0
+PASS  Launcher's latest tag  — v3.4.2
+PASS  GitHub latest release  — v2.1.0
+PASS  Launcher release has a setup  — IroniteLauncher-Setup-3.4.2.exe
+PASS  Published catalog  — https://raw.githubusercontent.com/adamglassner/launcher/main/catalog/games.json
+PASS  Download with checksum  — Klondike-2.1.0-windows.zip 12 MB, sha256 checked
+PASS  Real game installs  — C:\Users\runneradmin\AppData\Local\Temp\ironite-selftest-16fa9126\cache\Games\Klondike\2.1.0\Klondike.exe
+PASS  Real game uninstalls
+PASS  Running programs  — 147 running
+PASS  Match by program path
+PASS  Program icon  — 65514 bytes
+PASS  Saved sign-in is encrypted (DPAPI)
+PASS  Friends server  — https://uejyssvtwcrsuuntdjlf.supabase.co
+PASS  Friends: profiles and shared games on the real server (supabase/friends.sql is up to date)  — ember
+PASS  Friends: account, check-in and friends on the real server  — IroniteBot, 0 friends, 0 requests
+PASS  Browser for web games  — C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe
+PASS  Xbox / Store apps listed  — 6 apps, 0 games
+INFO  Steam account  — Steam not installed
+ALL PASSED

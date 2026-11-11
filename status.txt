@@ -1,0 +1,7 @@
+commit=6ea3a981357f55c49af3fa2c2f924ec05f4b9f5e
+ref=refs/heads/main
+status=success
+version=3.5.0
+release=true
+run=https://github.com/adamglassner/launcher/actions/runs/43118916489
+time=2026-11-11T23:22:55.7155233+00:00
