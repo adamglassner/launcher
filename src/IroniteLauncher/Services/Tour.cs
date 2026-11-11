@@ -79,6 +79,13 @@ public static class Tour
             w.MainScroll.ScrollToVerticalOffset(2600);
             await Settle();
             Shot(w, dir, "03-library-more");
+            w.MainScroll.ScrollToTop();
+            w._search.Focus();
+            w._search.Text = "Kl";
+            w._search.CaretIndex = 2;
+            await Settle();
+            Shot(w, dir, "03b-search");
+            w._search.Text = "";
 
             // Install a real game (Klondike) and watch it download.
             core.Install("klondike");

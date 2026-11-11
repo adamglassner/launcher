@@ -30,7 +30,7 @@ public partial class MainWindow
         new("solarsiege", "FEATURED · ARCADE", "SOLAR SIEGE", "DEFEND THE SOLAR SYSTEM"),
     };
 
-    private readonly TextBox _search = new() { MinWidth = 220, Height = 40, Padding = new Thickness(38, 0, 34, 0), FontSize = 14 };
+    internal readonly TextBox _search = new() { MinWidth = 220, Height = 40, Padding = new Thickness(38, 0, 34, 0), FontSize = 14 };
     private readonly ComboBox _sort = new() { Width = 170, Margin = new Thickness(12, 0, 0, 0), Visibility = Visibility.Collapsed, ToolTip = "Sort" };
     private readonly CheckBox _showHid = new() { Margin = new Thickness(12, 0, 0, 0), Visibility = Visibility.Collapsed };
     private readonly Grid _hero = new() { MinHeight = 320, Margin = new Thickness(0, 0, 0, 30) };
@@ -53,7 +53,7 @@ public partial class MainWindow
         // Search box with its magnifier, placeholder and clear button.
         var hint = T("Search games", 14, Res("Muted"));
         hint.IsHitTestVisible = false;
-        hint.Margin = new Thickness(39, 0, 0, 0);
+        hint.Margin = new Thickness(41, 0, 0, 0); // where typed text starts
         hint.VerticalAlignment = VerticalAlignment.Center;
         var glass = new System.Windows.Shapes.Path
         {

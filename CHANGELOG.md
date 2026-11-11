@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.1.3] - 2026-11-11
+
+### Fixed
+- Typing in the search box (and the other text boxes) starts at the left again, where "Search games" is, instead of partway across the box.
+
 ## [3.1.2] - 2026-11-11
 
 ### Changed
