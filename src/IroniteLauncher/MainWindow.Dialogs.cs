@@ -231,7 +231,7 @@ public partial class MainWindow
             var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
             row.Children.Add(T("Plays on ", 12, Res("Muted")).Also(t => t.VerticalAlignment = VerticalAlignment.Center));
             row.Children.Add(Plats(g).Also(p => p.Margin = new Thickness(0)));
-            meta.Children.Add(new Border { Width = 9999, MaxWidth = 420, Child = row });
+            meta.Children.Add(new Border { Width = 9999, MaxWidth = 2000, HorizontalAlignment = HorizontalAlignment.Left, Child = row }); // a line of its own
         }
         meta.Children.Add(Meta("Opened", Opens(s.PlayCount), Res("Muted")));
         meta.Children.Add(Meta("Played", Dur(s.PlaySeconds), Res("Muted")));

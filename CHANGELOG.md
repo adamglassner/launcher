@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.1.7] - 2026-11-11
+
+### Fixed
+- In a game's details, "Opened" no longer sits off to the right of the "Plays on" line.
+
 ## [3.1.6] - 2026-11-11
 
 ### Changed
