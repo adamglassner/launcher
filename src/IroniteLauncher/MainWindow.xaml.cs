@@ -63,6 +63,7 @@ public partial class MainWindow : Window
         BuildLibraryShell();
 
         Veil.MouseLeftButtonDown += (_, e) => { if (e.OriginalSource == Veil) CloseModal(); };
+        RoundClip(DlgGrid, 17); // rounded corners for the picture column too
         SizeChanged += (_, _) => Dlg.MaxHeight = Math.Max(300, ActualHeight * 0.9);
         PreviewKeyDown += OnKey;
         _toastTimer.Tick += (_, _) => { _toastTimer.Stop(); Toast.Visibility = Visibility.Collapsed; };

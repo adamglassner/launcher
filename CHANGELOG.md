@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.1.4] - 2026-11-11
+
+### Fixed
+- A game's details show its whole cover at the top of the picture column, over a soft blurred copy of it, instead of a zoomed-in strip of the cover. The picture column's corners are rounded like the rest of the window.
+
 ## [3.1.3] - 2026-11-11
 
 ### Fixed

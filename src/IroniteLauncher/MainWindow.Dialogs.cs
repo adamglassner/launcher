@@ -53,6 +53,46 @@ public partial class MainWindow
         DlgArt.AllowDrop = false;
     }
 
+    /// <summary>
+    /// The dialog's picture column: the whole cover (4:5) at the top, over a soft, darkened blur of the same
+    /// cover that fills the rest of the column (the column is much taller than a cover, so filling it with the
+    /// cover itself would crop it to a narrow strip).
+    /// </summary>
+    private static FrameworkElement ArtPanel(Func<FrameworkElement> make)
+    {
+        var back = make();
+        back.Effect = new System.Windows.Media.Effects.BlurEffect { Radius = 40, KernelType = System.Windows.Media.Effects.KernelType.Gaussian };
+        back.Opacity = 0.55;
+        back.Margin = new Thickness(-60); // so the blur's soft edge falls outside the column
+        var shade = new Border
+        {
+            Background = new LinearGradientBrush
+            {
+                StartPoint = new Point(0, 0), EndPoint = new Point(0, 1),
+                GradientStops =
+                {
+                    new GradientStop(Color.FromArgb(0x40, 0x12, 0x14, 0x19), 0),
+                    new GradientStop(Color.FromArgb(0x99, 0x12, 0x14, 0x19), 0.45),
+                    new GradientStop(Color.FromArgb(0xF0, 0x12, 0x14, 0x19), 1),
+                },
+            },
+        };
+        var cover = new RatioBox { Ratio = 1.25, VerticalAlignment = VerticalAlignment.Top, Child = make() };
+        var edge = new Border
+        {
+            VerticalAlignment = VerticalAlignment.Top, Height = 1, Background = B("#26FFFFFF"), IsHitTestVisible = false,
+        };
+        edge.SetBinding(MarginProperty, new System.Windows.Data.Binding("ActualHeight") { Source = cover, Converter = TopMargin.Instance });
+        return new Grid { Background = B("#0d0f14"), ClipToBounds = true, Children = { back, shade, cover, edge } };
+    }
+
+    private sealed class TopMargin : System.Windows.Data.IValueConverter
+    {
+        public static readonly TopMargin Instance = new();
+        public object Convert(object v, Type t, object p, System.Globalization.CultureInfo c) => new Thickness(0, (double)v, 0, 0);
+        public object ConvertBack(object v, Type t, object p, System.Globalization.CultureInfo c) => throw new NotSupportedException();
+    }
+
     private static TextBlock DlgTitle(string text, bool demo = false)
     {
         var t = new TextBlock { FontSize = 26, FontWeight = FontWeights.Bold, FontFamily = Display, Foreground = Res("Text"), Margin = new Thickness(0, 12, 0, 2), TextWrapping = TextWrapping.Wrap };
@@ -148,7 +188,7 @@ public partial class MainWindow
         if (g == null) return;
         _modalId = id;
         var s = St(id);
-        var m = new Modal { Art = Cover(g, true, 84), Pill = PillFor(g), Title = DlgTitle(g.Title, g.Demo) };
+        var m = new Modal { Art = ArtPanel(() => Cover(g, true, 84)), Pill = PillFor(g), Title = DlgTitle(g.Title, g.Demo) };
         if (!s.Available)
         {
             m.Sub = g.IsPlaceholder ? "New category" : $"{g.Subtitle} · {g.Players}";
@@ -332,7 +372,7 @@ public partial class MainWindow
         {
             OpenModal(new Modal
             {
-                Art = Cover(g, true, 84), Pill = Pill("REMOVE", "miss"), Title = DlgTitle($"Remove {g.Title} from the launcher?"),
+                Art = ArtPanel(() => Cover(g, true, 84)), Pill = Pill("REMOVE", "miss"), Title = DlgTitle($"Remove {g.Title} from the launcher?"),
                 Desc = DlgDesc($"{g.Title} disappears from the launcher, along with its play stats here. The game itself isn't touched: its files stay on this PC and you can add it again any time."),
                 Actions = Actions(Btn("Remove", "DangerButton", () =>
                 {
@@ -346,7 +386,7 @@ public partial class MainWindow
         }
         OpenModal(new Modal
         {
-            Art = Cover(g, true, 84), Pill = Pill("UNINSTALL", "miss"), Title = DlgTitle($"Uninstall {g.Title}{(g.Demo ? " Demo" : "")}?"),
+            Art = ArtPanel(() => Cover(g, true, 84)), Pill = Pill("UNINSTALL", "miss"), Title = DlgTitle($"Uninstall {g.Title}{(g.Demo ? " Demo" : "")}?"),
             Desc = DlgDesc($"This removes {g.Title}'s game files from this PC. Your saves, settings and play stats are kept, and you can install it again any time from the Library."),
             Actions = Actions(Btn("Uninstall", "DangerButton", async () =>
             {
@@ -713,15 +753,16 @@ public partial class MainWindow
 
         void Preview()
         {
-            FrameworkElement el;
+            Func<FrameworkElement> make;
             if (art is { } a)
             {
                 using var ms = new MemoryStream(a.Data);
-                el = new Grid { Background = B("#0d0f14"), Children = { Fill(Decode(ms)!) } };
+                var img = Decode(ms)!;
+                make = () => new Grid { Background = B("#0d0f14"), Children = { Fill(img) } };
             }
-            else if (removeArt) el = MadeCover(g.Title, Path.Combine(AppPaths.CustomIcons, cg.Id + ".png"), true, 84);
-            else el = Cover(g, true, 84);
-            DlgArt.Child = el;
+            else if (removeArt) make = () => MadeCover(g.Title, Path.Combine(AppPaths.CustomIcons, cg.Id + ".png"), true, 84);
+            else make = () => Cover(g, true, 84);
+            DlgArt.Child = ArtPanel(make);
         }
         Button? useIcon = null;
         void UseFile(string file)
@@ -755,7 +796,7 @@ public partial class MainWindow
 
         OpenModal(new Modal
         {
-            Art = Cover(g, true, 84), Pill = Pill("EDIT DETAILS", "mine"), Title = DlgTitle(g.Title), Sub = g.IsStore ? "Xbox / Microsoft Store game" : "Your game",
+            Art = ArtPanel(() => Cover(g, true, 84)), Pill = Pill("EDIT DETAILS", "mine"), Title = DlgTitle(g.Title), Sub = g.IsStore ? "Xbox / Microsoft Store game" : "Your game",
             Notes = form,
             Actions = Actions(Ui.Play("Save", "", () =>
             {
