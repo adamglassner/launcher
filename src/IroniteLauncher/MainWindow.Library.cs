@@ -121,8 +121,16 @@ public partial class MainWindow
     private bool Matches(CatalogGame g) => _query.Length == 0 ||
         string.Join(" ", new[] { g.Title, g.Subtitle, g.Group }.Where(x => !string.IsNullOrEmpty(x))).ToLowerInvariant().Contains(_query);
 
+    /// <summary>The featured games in a random order, shuffled once each time the launcher starts.</summary>
+    private static readonly Featured[] FeaturedOrder = FeaturedGames.OrderBy(_ => Random.Shared.Next()).ToArray();
+    private const int FeaturedCount = 5;
+
+    /// <summary>
+    /// The carousel: 5 random Ironite games (never the player's own games), from the ones that have a banner,
+    /// are available and aren't hidden. The same 5 stay until the launcher restarts.
+    /// </summary>
     private List<Featured> FeaturedNow() =>
-        FeaturedGames.Where(f => Game(f.Id) is { } g && Avail(g) && !St(f.Id).Hidden).ToList();
+        FeaturedOrder.Where(f => Game(f.Id) is { } g && !g.IsLocal && Avail(g) && !St(f.Id).Hidden).Take(FeaturedCount).ToList();
 
     /// <summary>Web games need no install, so they're always in Installed.</summary>
     private List<CatalogGame> InstalledGames() =>

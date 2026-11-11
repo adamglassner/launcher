@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.3.1] - 2026-11-11
+
+### Changed
+- The featured carousel at the top of the Library shows 5 Ironite games, picked at random each time the launcher starts, instead of all of them. Your own (non-Ironite) games never appear there.
+
 ## [3.3.0] - 2026-11-11
 
 ### Added
