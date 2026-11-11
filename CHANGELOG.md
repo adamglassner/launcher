@@ -4,6 +4,14 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.1.1] - 2026-11-11
+
+### Added
+- Rewind Life's achievements: its 60 Memory Moments show on the Achievements page and in the game's details, grouped At Home, Around Town, Holidays & Seasons and School, from Rewind Life 1.10.0 (the launcher updates the demo by itself). Memory Moments found in older saves are added the next time you load them.
+
+### Changed
+- Rewind Life's description mentions its achievements.
+
 ## [3.1.0] - 2026-11-10
 
 ### Added

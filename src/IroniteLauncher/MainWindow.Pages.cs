@@ -98,7 +98,7 @@ public partial class MainWindow
 
         _achBody.Children.Add(SectionHead("IRONITE GAMES"));
         if (ironite.Count == 0)
-            _achBody.Children.Add(Muted("Ironite games show their achievements here once you’ve played them. Solar Siege has them from version 1.4.0.")
+            _achBody.Children.Add(Muted("Ironite games show their achievements here once you’ve played them. Solar Siege has them from version 1.4.0, and Rewind Life (its Memory Moments) from version 1.10.0.")
                 .Also(t => { t.Margin = new Thickness(0, 0, 0, 18); t.TextWrapping = TextWrapping.Wrap; t.MaxWidth = 860; t.HorizontalAlignment = HorizontalAlignment.Left; }));
         foreach (var r in ironite) _achBody.Children.Add(AchCard(r));
 
