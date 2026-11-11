@@ -4,6 +4,14 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.4.0] - 2026-11-11
+
+### Added
+- Big Top Builder is now available to install from Simulation as a free DEMO (no longer Coming Soon). Raise the tents, hire your troupe, plan each show's running order and run opening week: three nights in Brookhaven. It downloads and updates from its own GitHub repository like the other games, has its achievements on the Achievements page, can appear in the featured carousel, and has new cover art.
+
+### Fixed
+- Uninstalling the launcher now also closes Big Top Builder if it's running, like the other games.
+
 ## [3.3.1] - 2026-11-11
 
 ### Changed

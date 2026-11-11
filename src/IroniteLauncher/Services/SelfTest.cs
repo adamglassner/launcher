@@ -166,7 +166,7 @@ public static class SelfTest
             Check("Built-in catalog", catalog.Schema >= 2 && catalog.Games.Count >= 20 && catalog.Categories.Count >= 9, $"{catalog.Games.Count} games");
             var noCover = catalog.Games.Where(g => Ui.Pack($"Covers/{g.Id}.jpg") == null).Select(g => g.Id).ToList();
             Check("Every game has a cover", noCover.Count == 0, noCover.Count == 0 ? $"{catalog.Games.Count} covers" : "missing: " + string.Join(", ", noCover));
-            var heroes = new[] { "klondike", "rewindlife", "carnival", "euchre", "oldmaid", "spades", "cribbage", "ginrummy", "hearts", "mahjong", "solarsiege" };
+            var heroes = new[] { "klondike", "rewindlife", "carnival", "bigtop", "euchre", "oldmaid", "spades", "cribbage", "ginrummy", "hearts", "mahjong", "solarsiege" };
             var noHero = heroes.Where(id => Ui.Pack($"Covers/{id}-hero.jpg") == null).ToList();
             Check("Featured banners", noHero.Count == 0, noHero.Count == 0 ? $"{heroes.Length} banners" : "missing: " + string.Join(", ", noHero));
             Check("Logo and icon", Ui.Pack("Assets/ironite-logo.png") != null && Ui.Pack("Assets/icon-1024.png") != null);
