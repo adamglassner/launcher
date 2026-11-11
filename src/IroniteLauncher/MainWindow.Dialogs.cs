@@ -54,43 +54,22 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// The dialog's picture column: the whole cover (4:5) at the top, over a soft, darkened blur of the same
-    /// cover that fills the rest of the column (the column is much taller than a cover, so filling it with the
-    /// cover itself would crop it to a narrow strip).
+    /// The dialog's picture column: the cover as a card (its own 4:5 shape, rounded, with a shadow) at the top
+    /// of a plain dark column, like a game box on a store page. The column is taller than a cover, so the cover
+    /// isn't stretched to fill it.
     /// </summary>
     private static FrameworkElement ArtPanel(Func<FrameworkElement> make)
     {
-        var back = make();
-        back.Effect = new System.Windows.Media.Effects.BlurEffect { Radius = 40, KernelType = System.Windows.Media.Effects.KernelType.Gaussian };
-        back.Opacity = 0.55;
-        back.Margin = new Thickness(-60); // so the blur's soft edge falls outside the column
-        var shade = new Border
+        var art = make();
+        var cover = new RatioBox { Ratio = 1.25, Child = art };
+        RoundClip(art, 10);
+        var card = new Border
         {
-            Background = new LinearGradientBrush
-            {
-                StartPoint = new Point(0, 0), EndPoint = new Point(0, 1),
-                GradientStops =
-                {
-                    new GradientStop(Color.FromArgb(0x40, 0x12, 0x14, 0x19), 0),
-                    new GradientStop(Color.FromArgb(0x99, 0x12, 0x14, 0x19), 0.45),
-                    new GradientStop(Color.FromArgb(0xF0, 0x12, 0x14, 0x19), 1),
-                },
-            },
+            CornerRadius = new CornerRadius(10), BorderBrush = B("#1FFFFFFF"), BorderThickness = new Thickness(1),
+            Margin = new Thickness(20, 22, 20, 22), VerticalAlignment = VerticalAlignment.Top, Child = cover,
+            Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 8, Direction = 270, Opacity = 0.5 },
         };
-        var cover = new RatioBox { Ratio = 1.25, VerticalAlignment = VerticalAlignment.Top, Child = make() };
-        var edge = new Border
-        {
-            VerticalAlignment = VerticalAlignment.Top, Height = 1, Background = B("#26FFFFFF"), IsHitTestVisible = false,
-        };
-        edge.SetBinding(MarginProperty, new System.Windows.Data.Binding("ActualHeight") { Source = cover, Converter = TopMargin.Instance });
-        return new Grid { Background = B("#0d0f14"), ClipToBounds = true, Children = { back, shade, cover, edge } };
-    }
-
-    private sealed class TopMargin : System.Windows.Data.IValueConverter
-    {
-        public static readonly TopMargin Instance = new();
-        public object Convert(object v, Type t, object p, System.Globalization.CultureInfo c) => new Thickness(0, (double)v, 0, 0);
-        public object ConvertBack(object v, Type t, object p, System.Globalization.CultureInfo c) => throw new NotSupportedException();
+        return new Grid { Background = Res("Bg2"), Children = { card } };
     }
 
     private static TextBlock DlgTitle(string text, bool demo = false)

@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.1.5] - 2026-11-11
+
+### Changed
+- A game's details show its cover as a card at the top of a plain dark column, like a game box, instead of over a blurred background.
+
 ## [3.1.4] - 2026-11-11
 
 ### Fixed
