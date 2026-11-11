@@ -164,7 +164,6 @@ public static class Tour
             Shot(w, dir, "17-friends-sign-in");
             var fr = App.Friends;
             await fr.SignUpAsync("player@example.com", "correct-horse", "AdamG");
-            await fr.ConfirmEmailAsync("player@example.com", "123456");
             await fr.RefreshAsync();
             Check("Friends: register and sign in", fr.SignedIn && fr.Username == "AdamG" && fr.Friends.Count == 3, $"{fr.Username}, {fr.Friends.Count} friends");
             Check("Friends: shows what friends are playing", fr.Friends.Any(f => f.PlayingTitle == "Solar Siege"));

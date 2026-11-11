@@ -290,7 +290,7 @@ public partial class MainWindow
         {
             case "register":
                 title = "Create your Ironite account";
-                sub = "We’ll email you a code to confirm your address.";
+                sub = "Friends find you by your username.";
                 p.Children.Add(Field("Email", email));
                 p.Children.Add(Field("Username", Stack(username, userNote)));
                 p.Children.Add(Field("Password", password, "At least 8 characters."));
@@ -299,8 +299,13 @@ public partial class MainWindow
                 Action reg = () => Run(async () =>
                 {
                     if (password.Password != password2.Password) throw new FriendsException("The passwords don’t match.");
-                    await Fr.SignUpAsync(email.Text, password.Password, username.Text.Trim());
                     _fEmail = email.Text.Trim();
+                    if (await Fr.SignUpAsync(email.Text, password.Password, username.Text.Trim()))
+                    {
+                        ShowToast($"Welcome to Ironite, {Fr.Username}!");
+                        Go("signin");
+                        return;
+                    }
                     Go("confirm", $"We sent a 6-digit code to {_fEmail}. It can take a minute; check your spam folder too.");
                 });
                 Submit(password2, reg);
@@ -391,7 +396,8 @@ public partial class MainWindow
                 });
                 Submit(password, signin);
                 p.Children.Add(Primary("Sign in", signin));
-                p.Children.Add(Row(16, Link("Create an account", () => Go("register"), 13), Link("Forgot password?", () => Go("forgot"), 13)));
+                p.Children.Add(Row(4, Muted("New to Ironite? ", 13, TextWrapping.NoWrap), Link("Create an account", () => Go("register"), 13)));
+                // "Forgot password?" (Go("forgot")) comes back once the Friends server can send emails.
                 break;
         }
 

@@ -20,8 +20,11 @@ public interface IFriendsBackend
 {
     // ---- accounts
     Task<bool> UsernameAvailableAsync(string username);
-    /// <summary>Registers; the server emails a 6-digit code to confirm the address.</summary>
-    Task SignUpAsync(string email, string password, string username);
+    /// <summary>
+    /// Registers. Returns the session straight away when the server doesn't ask for email confirmation;
+    /// otherwise null, and the server emails a 6-digit code to confirm the address.
+    /// </summary>
+    Task<Session?> SignUpAsync(string email, string password, string username);
     Task<Session> ConfirmEmailAsync(string email, string code);
     Task ResendConfirmationAsync(string email);
     Task<Session> SignInAsync(string email, string password);

@@ -23,11 +23,11 @@ public sealed class FakeBackend : IFriendsBackend
 
     public Task<bool> UsernameAvailableAsync(string username) => Task.FromResult(_users.Values.All(u => !u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)));
 
-    public Task SignUpAsync(string email, string password, string username)
+    public Task<Session?> SignUpAsync(string email, string password, string username)
     {
         if (_users.ContainsKey(email)) throw new FriendsException("There's already an account with that email. Sign in instead.");
-        _users[email] = (password, username, false);
-        return Task.CompletedTask;
+        _users[email] = (password, username, true); // like a server with email confirmation off
+        return Task.FromResult<Session?>(S(email));
     }
 
     public Task<Session> ConfirmEmailAsync(string email, string code)

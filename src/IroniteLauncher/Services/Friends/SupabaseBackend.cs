@@ -20,7 +20,8 @@ public sealed class SupabaseBackend(string url, string anonKey) : IFriendsBacken
     {
         using var req = new HttpRequestMessage(method, _url + path);
         req.Headers.TryAddWithoutValidation("apikey", anonKey);
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", s?.AccessToken ?? anonKey);
+        // Signed out, only the apikey header goes (Supabase's sb_publishable_ keys aren't tokens).
+        if (s != null) req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", s.AccessToken);
         req.Headers.UserAgent.ParseAdd("IroniteLauncher/" + App.VersionText);
         if (body != null) req.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
         HttpResponseMessage resp;
@@ -76,12 +77,13 @@ public sealed class SupabaseBackend(string url, string anonKey) : IFriendsBacken
     public async Task<bool> UsernameAvailableAsync(string username) =>
         (await Rpc("username_available", new { name = username }, null))?.GetValue<bool>() == true;
 
-    public async Task SignUpAsync(string email, string password, string username)
+    public async Task<Session?> SignUpAsync(string email, string password, string username)
     {
         var j = await SendAsync(HttpMethod.Post, "/auth/v1/signup", new { email, password, data = new { username } });
         // With email confirmation on, an email that already has an account gets a made-up user with no identities.
         if (j?["identities"] is JsonArray { Count: 0 } || j?["user"]?["identities"] is JsonArray { Count: 0 })
             throw new FriendsException("There's already an account with that email. Sign in instead.");
+        return Str(j, "access_token") != null ? ToSession(j) : null; // signed in straight away when confirmation is off
     }
 
     public async Task<Session> ConfirmEmailAsync(string email, string code) =>

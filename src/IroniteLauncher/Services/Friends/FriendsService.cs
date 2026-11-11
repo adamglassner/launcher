@@ -14,8 +14,8 @@ public sealed class FriendsService
 {
     // The Supabase project the launcher uses. The anon key is meant to ship in apps; the database only allows
     // what supabase/friends.sql's functions allow.
-    public const string SupabaseUrl = "";
-    public const string SupabaseAnonKey = "";
+    public const string SupabaseUrl = "https://uejyssvtwcrsuuntdjlf.supabase.co";
+    public const string SupabaseAnonKey = "sb_publishable_eIxyYaCLELj8JK9A7ivNmA_MxVGKhbB";
 
     private readonly IFriendsBackend? _backend;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -182,13 +182,29 @@ public sealed class FriendsService
 
     public Task<bool> UsernameAvailableAsync(string u) => Backend.UsernameAvailableAsync(u);
 
-    public async Task SignUpAsync(string email, string password, string username)
+    /// <summary>Registers. True when signed in straight away; false when the email must be confirmed with a code first.</summary>
+    public async Task<bool> SignUpAsync(string email, string password, string username)
     {
         if (CheckUsername(username) is { } bad) throw new FriendsException(bad);
         if (password.Length < 8) throw new FriendsException("Choose a password of at least 8 characters.");
         if (!await Backend.UsernameAvailableAsync(username)) throw new FriendsException($"The username {username} is taken. Choose another.");
-        await Backend.SignUpAsync(email.Trim(), password, username);
+        var s = await Backend.SignUpAsync(email.Trim(), password, username);
+        if (s != null)
+        {
+            Log.Info("friends: registered");
+            await SetSession(s, username);
+            return true;
+        }
         Log.Info("friends: registered, waiting for the email code");
+        return false;
+    }
+
+    /// <summary>For the self-test: can the launcher talk to the Friends server (and is its database set up)?</summary>
+    public async Task<string> CheckServerAsync()
+    {
+        if (_backend == null) return "not configured";
+        try { await _backend.UsernameAvailableAsync("ironite_check"); return "ok"; }
+        catch (Exception ex) { return ex.Message; }
     }
 
     public async Task ConfirmEmailAsync(string email, string code) => await SetSession(await Backend.ConfirmEmailAsync(email.Trim(), code));

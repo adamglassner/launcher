@@ -251,6 +251,8 @@ public static class SelfTest
                 var png = Platform.ExeIconPng(File.Exists(notepad) ? notepad : Environment.ProcessPath!);
                 Check("Program icon", png is { Length: > 100 }, $"{png?.Length ?? 0} bytes");
                 Check("Saved sign-in is encrypted (DPAPI)", Friends.FriendsService.DpapiWorks());
+                var server = await new Friends.FriendsService().CheckServerAsync();
+                Info("Friends server", server == "ok", server == "ok" ? Friends.FriendsService.SupabaseUrl : server);
                 Info("Browser for web games", Platform.FindBrowser() != null, Platform.FindBrowser() ?? "none");
                 try
                 {
