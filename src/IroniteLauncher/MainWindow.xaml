@@ -45,18 +45,13 @@
 
     <!-- Dialogs -->
     <Grid x:Name="Veil" Grid.ColumnSpan="2" Background="#AD06070A" Visibility="Collapsed">
-      <Border x:Name="Dlg" Width="680" Margin="20"
+      <Border x:Name="Dlg" Width="620" Margin="20"
               Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="18"
               HorizontalAlignment="Center" VerticalAlignment="Center">
         <Border.Effect><DropShadowEffect BlurRadius="80" ShadowDepth="30" Direction="270" Opacity="0.5" /></Border.Effect>
         <Grid x:Name="DlgGrid">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="200" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <Border x:Name="DlgArt" Grid.Column="0" Background="#111111" CornerRadius="17,0,0,17" ClipToBounds="True" />
-          <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel x:Name="DlgBody" Margin="24" />
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel x:Name="DlgBody" Margin="26,24,26,24" />
           </ScrollViewer>
         </Grid>
       </Border>

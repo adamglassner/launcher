@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.1.6] - 2026-11-11
+
+### Changed
+- A game's details window no longer has a picture column down the side. It's one column, with a small copy of the game's cover beside its name at the top. The same goes for Uninstall, Edit details, Add a game and the Steam and Xbox settings.
+
 ## [3.1.5] - 2026-11-11
 
 ### Changed

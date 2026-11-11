@@ -30,13 +30,40 @@ public partial class MainWindow
         public UIElement? Tools;
     }
 
+    /// <summary>The small cover next to the dialog's title (pictures can be dropped on it in Edit details).</summary>
+    private readonly Border DlgArt = new()
+    {
+        Width = 104, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 0, 20, 0), CornerRadius = new CornerRadius(10),
+        BorderBrush = B("#1FFFFFFF"), BorderThickness = new Thickness(1), Background = B("#0d0f14"),
+        Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 18, ShadowDepth = 6, Direction = 270, Opacity = 0.45 },
+    };
+
+    /// <summary>A picture in the cover's own 4:5 shape with rounded corners, for the dialog's thumbnail.</summary>
+    private static FrameworkElement Thumb(FrameworkElement art)
+    {
+        var box = new RatioBox { Ratio = 1.25, Child = art };
+        RoundClip(box, 9);
+        return box;
+    }
+
     private void OpenModal(Modal m)
     {
-        DlgArt.Child = m.Art;
+        DlgArt.Child = m.Art == null ? null : Thumb(m.Art);
+        (DlgArt.Parent as Panel)?.Children.Remove(DlgArt);
         DlgBody.Children.Clear();
-        if (m.Pill != null) DlgBody.Children.Add(m.Pill);
-        if (m.Title != null) DlgBody.Children.Add(m.Title);
-        if (!string.IsNullOrEmpty(m.Sub)) DlgBody.Children.Add(T(m.Sub, 14, Res("Muted"), wrap: TextWrapping.Wrap));
+        // Header: the cover thumbnail beside the label, title and subtitle.
+        var head = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        if (m.Pill != null) head.Children.Add(m.Pill);
+        if (m.Title != null) head.Children.Add(m.Title);
+        if (!string.IsNullOrEmpty(m.Sub)) head.Children.Add(T(m.Sub, 14, Res("Muted"), wrap: TextWrapping.Wrap));
+        var header = new DockPanel();
+        if (m.Art != null)
+        {
+            DockPanel.SetDock(DlgArt, Dock.Left);
+            header.Children.Add(DlgArt);
+        }
+        header.Children.Add(head);
+        DlgBody.Children.Add(header);
         if (m.Desc != null) DlgBody.Children.Add(m.Desc);
         else DlgBody.Children.Add(new Border { Height = 14 });
         if (m.Notes != null) DlgBody.Children.Add(m.Notes);
@@ -53,24 +80,7 @@ public partial class MainWindow
         DlgArt.AllowDrop = false;
     }
 
-    /// <summary>
-    /// The dialog's picture column: the cover as a card (its own 4:5 shape, rounded, with a shadow) at the top
-    /// of a plain dark column, like a game box on a store page. The column is taller than a cover, so the cover
-    /// isn't stretched to fill it.
-    /// </summary>
-    private static FrameworkElement ArtPanel(Func<FrameworkElement> make)
-    {
-        var art = make();
-        var cover = new RatioBox { Ratio = 1.25, Child = art };
-        RoundClip(art, 10);
-        var card = new Border
-        {
-            CornerRadius = new CornerRadius(10), BorderBrush = B("#1FFFFFFF"), BorderThickness = new Thickness(1),
-            Margin = new Thickness(20, 22, 20, 22), VerticalAlignment = VerticalAlignment.Top, Child = cover,
-            Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 8, Direction = 270, Opacity = 0.5 },
-        };
-        return new Grid { Background = Res("Bg2"), Children = { card } };
-    }
+    private static FrameworkElement ArtPanel(Func<FrameworkElement> make) => make();
 
     private static TextBlock DlgTitle(string text, bool demo = false)
     {
@@ -325,7 +335,7 @@ public partial class MainWindow
 
     private static FrameworkElement AppIconArt()
     {
-        var img = new Image { Source = Pack("Assets/icon-1024.png"), Stretch = Stretch.Uniform, Margin = new Thickness(40) };
+        var img = new Image { Source = Pack("Assets/icon-1024.png"), Stretch = Stretch.Uniform, Margin = new Thickness(16) };
         return new Grid { Background = B("#141821"), Children = { img } };
     }
 
@@ -599,7 +609,7 @@ public partial class MainWindow
         var form = Stack(tabBar, exePane, storePane, Field("Name", Placeholder(title, "My Game")), Field("Category", Stack(cat, newCat)), errBox,
             T("You can add details and your own cover art after adding it, with Edit details.", 12, Res("Muted"), wrap: TextWrapping.Wrap).Also(t => t.Margin = new Thickness(0, 0, 0, 18)));
 
-        var plus = T("+", 96, Res("Ember2"), FontWeights.Light, true);
+        var plus = T("+", 64, Res("Ember2"), FontWeights.Light, true);
         plus.HorizontalAlignment = HorizontalAlignment.Center;
         plus.VerticalAlignment = VerticalAlignment.Center;
         OpenModal(new Modal
@@ -741,7 +751,7 @@ public partial class MainWindow
             }
             else if (removeArt) make = () => MadeCover(g.Title, Path.Combine(AppPaths.CustomIcons, cg.Id + ".png"), true, 84);
             else make = () => Cover(g, true, 84);
-            DlgArt.Child = ArtPanel(make);
+            DlgArt.Child = Thumb(make());
         }
         Button? useIcon = null;
         void UseFile(string file)
@@ -821,7 +831,7 @@ public partial class MainWindow
         Control input = steam ? new TextBox { Text = profile } : new PasswordBox();
         var errBox = FormError(out var errText);
         var err = ErrorSetter(errBox, errText);
-        var glyph = T(steam ? "♨" : "X", 96, Res("Ember2"), FontWeights.Light, true);
+        var glyph = T(steam ? "♨" : "X", 56, Res("Ember2"), FontWeights.Light, true);
         glyph.HorizontalAlignment = HorizontalAlignment.Center;
         glyph.VerticalAlignment = VerticalAlignment.Center;
         OpenModal(new Modal
