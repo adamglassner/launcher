@@ -4,6 +4,13 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.2.0] - 2026-11-11
+
+### Added
+- Friends. Create an Ironite account on the Friends page (email, username and password) and sign in. Add friends by their username, accept or decline friend requests, and see which friends are online and what they're playing. Your friends see the same about you while the launcher is open.
+- The Friends button in the sidebar shows how many friend requests are waiting, or how many friends are online.
+- The launcher keeps you signed in. Your sign-in is stored encrypted for your Windows account only.
+
 ## [3.1.7] - 2026-11-11
 
 ### Fixed

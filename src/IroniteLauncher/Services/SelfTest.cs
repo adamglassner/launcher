@@ -253,6 +253,29 @@ public static class SelfTest
                 Check("Saved sign-in is encrypted (DPAPI)", Friends.FriendsService.DpapiWorks());
                 var server = await new Friends.FriendsService().CheckServerAsync();
                 Info("Friends server", server == "ok", server == "ok" ? Friends.FriendsService.SupabaseUrl : server);
+                if (server == "ok")
+                {
+                    // A real round trip with a test account (made the first time): register or sign in, check in, read friends.
+                    var be = new Friends.SupabaseBackend(Friends.FriendsService.SupabaseUrl, Friends.FriendsService.SupabaseAnonKey);
+                    const string email = "ironite.launcher.ci@gmail.com", pass = "Ironite-CI-check-2026";
+                    try
+                    {
+                        Friends.Session? fs;
+                        try { fs = await be.SignInAsync(email, pass); }
+                        catch (Friends.FriendsException ex) when (ex.Message.StartsWith("That email and password"))
+                        {
+                            fs = await be.SignUpAsync(email, pass, "IroniteBot");
+                            if (fs == null) throw new Friends.FriendsException("signing up asked for email confirmation (Confirm email is still on)");
+                        }
+                        await be.HeartbeatAsync(fs, null, null);
+                        var me = await be.MyUsernameAsync(fs);
+                        var fl = await be.FriendsAsync(fs);
+                        var rq = await be.RequestsAsync(fs);
+                        await be.GoOfflineAsync(fs);
+                        Check("Friends: account, check-in and friends on the real server", me == "IroniteBot", $"{me}, {fl.Count} friends, {rq.Count} requests");
+                    }
+                    catch (Exception ex) { Check("Friends: account, check-in and friends on the real server", false, ex.Message); }
+                }
                 Info("Browser for web games", Platform.FindBrowser() != null, Platform.FindBrowser() ?? "none");
                 try
                 {
