@@ -105,17 +105,13 @@ public partial class MainWindow
         // ---- Steam and Xbox, for the player's own games
         _achBody.Children.Add(SectionHead("STEAM & XBOX").Also(t => t.Margin = new Thickness(0, 18, 0, 10)));
         var (profile, key) = Core.AchievementAccounts();
-        var (sid, sname) = AchievementService.DetectSteamUser();
-        var accounts = new AutoGrid { MinItemWidth = 300, Gap = 12, MaxWidth = 860, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 18) };
-        UIElement steamWho = profile.Length > 0 ? T(Regex.Replace(profile, @"^https?://(www\.)?steamcommunity\.com/", "", RegexOptions.IgnoreCase), 13).Also(t => t.ToolTip = profile)
-            : sname.Length > 0 ? new TextBlock { FontSize = 13, Foreground = Res("Text"), TextTrimming = TextTrimming.CharacterEllipsis, Inlines = { new System.Windows.Documents.Run(sname + " "), new System.Windows.Documents.Run("(signed in to Steam on this PC)") { Foreground = Res("Muted") } } }
-            : T("Not found. Paste your profile link.", 13, Res("Muted"));
-        accounts.Children.Add(Account("STEAM", steamWho, profile.Length > 0 ? "Change" : "Use another profile", () => AccountDialog("steam"),
-            "Your Steam profile's Game details must be set to Public."));
-        accounts.Children.Add(Account("XBOX", string.IsNullOrEmpty(key) ? T("Not connected", 13, Res("Muted")) : T("Connected with your OpenXBL key", 13),
-            string.IsNullOrEmpty(key) ? "Add OpenXBL key" : "Change key", () => AccountDialog("xbox"),
-            "Xbox achievements need a free key from xbl.io (sign in there with your Xbox account)."));
-        _achBody.Children.Add(accounts);
+        var steamOn = profile.Length > 0 || AchievementService.DetectSteamUser().Id.Length > 0;
+        var xboxOn = !string.IsNullOrEmpty(key);
+        var where = new WrapPanel { Margin = new Thickness(0, 0, 0, 14) };
+        where.Children.Add(Muted(steamOn && xboxOn ? "Steam and Xbox are connected. " : steamOn ? "Steam is connected; Xbox isn’t. "
+            : xboxOn ? "Xbox is connected; Steam isn’t. " : "Steam and Xbox aren’t connected. ", 12.5, TextWrapping.NoWrap).Also(t => t.VerticalAlignment = VerticalAlignment.Center));
+        where.Children.Add(Link("Manage in Settings", () => Go("settings")));
+        _achBody.Children.Add(where);
 
         if (linked.Count == 0)
         {
@@ -543,6 +539,27 @@ public partial class MainWindow
         g.Children.Add(b);
         g.Children.Add(new Rectangle { RadiusX = 14, RadiusY = 14, Stroke = Res("Line"), StrokeThickness = 1, StrokeDashArray = new DoubleCollection { 4, 3 }, IsHitTestVisible = false });
         return new Border { Child = g };
+    }
+
+    // ---------------------------------------------------------------- Settings
+
+    private void RenderSettings()
+    {
+        PageStart("Settings", "Connect the accounts the launcher reads achievements from.");
+        _page.Children.Add(T("Achievements from other launchers", 16, weight: FontWeights.Bold, display: true).Also(t => t.Margin = new Thickness(0, 24, 0, 4)));
+        _page.Children.Add(Muted("For your non-Ironite games. Their achievements show on the Achievements page.", 13));
+        var (profile, key) = Core.AchievementAccounts();
+        var (_, sname) = AchievementService.DetectSteamUser();
+        var accounts = new AutoGrid { MinItemWidth = 300, Gap = 12, MaxWidth = 860, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 14, 0, 18) };
+        UIElement steamWho = profile.Length > 0 ? T(Regex.Replace(profile, @"^https?://(www\.)?steamcommunity\.com/", "", RegexOptions.IgnoreCase), 13).Also(t => t.ToolTip = profile)
+            : sname.Length > 0 ? new TextBlock { FontSize = 13, Foreground = Res("Text"), TextTrimming = TextTrimming.CharacterEllipsis, Inlines = { new System.Windows.Documents.Run(sname + " "), new System.Windows.Documents.Run("(signed in to Steam on this PC)") { Foreground = Res("Muted") } } }
+            : T("Not connected", 13, Res("Muted"));
+        accounts.Children.Add(Account("STEAM", steamWho, profile.Length > 0 ? "Change" : sname.Length > 0 ? "Use another profile" : "Connect", () => AccountDialog("steam"),
+            "Your Steam profile's Game details must be set to Public."));
+        accounts.Children.Add(Account("XBOX", string.IsNullOrEmpty(key) ? T("Not connected", 13, Res("Muted")) : T("Connected with your OpenXBL key", 13),
+            string.IsNullOrEmpty(key) ? "Connect" : "Change key", () => AccountDialog("xbox"),
+            "Xbox achievements need a free key from xbl.io (sign in there with your Xbox account)."));
+        _page.Children.Add(accounts);
     }
 
     // ---------------------------------------------------------------- About

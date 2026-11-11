@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.1.2] - 2026-11-11
+
+### Changed
+- Connecting Steam and Xbox for achievements has moved to a new Settings page in the sidebar. Your Steam and Xbox achievements still show on the Achievements page, which links to Settings.
+
 ## [3.1.1] - 2026-11-11
 
 ### Added

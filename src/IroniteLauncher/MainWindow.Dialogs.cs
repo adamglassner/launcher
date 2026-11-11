@@ -682,7 +682,7 @@ public partial class MainWindow
             var v = AchSource();
             achId.Visibility = find!.Visibility = v.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
             achHelp.Text = v == "steam" ? "The number in the game’s Steam store link (store.steampowered.com/app/NUMBER). Find fills it in for games installed by Steam."
-                : v == "xbox" ? "Find looks it up from the game, or your Xbox game history (needs your OpenXBL key on the Achievements page)." : "";
+                : v == "xbox" ? "Find looks it up from the game, or your Xbox game history (needs your OpenXBL key in Settings)." : "";
         }
         find = Btn("Find", "GhostButton", async () =>
         {
@@ -821,7 +821,10 @@ public partial class MainWindow
                     if (steam) Core.SetSteamProfile(((TextBox)input).Text);
                     else Core.SetXblKey(((PasswordBox)input).Password);
                     CloseModal();
-                    await RenderAchievementsAsync(true);
+                    AchievementService.ClearCache();
+                    _ach = null; // the Achievements page reloads with the new account
+                    if (_view == "settings") RenderSettings();
+                    else if (_view == "achievements") await RenderAchievementsAsync(true);
                 }
                 catch (Exception ex) { err(ex.Message); }
             }, small: true), Btn("Cancel", "GhostButton", CloseModal, small: true)),

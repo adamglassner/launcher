@@ -45,7 +45,7 @@ public partial class MainWindow : Window
         ("arcade", "◆", "Arcade"), ("puzzle", "▣", "Puzzle"), ("word", "A", "Word/Trivia"), ("sim", "⌂", "Simulation"),
         ("idle", "↻", "Idle"), ("edu", "✎", "Education"), ("board", "♞", "Board Games"), ("custom", "⊕", "Non-Ironite Games"),
         ("-", "", ""),
-        ("friends", "☺", "Friends"), ("achievements", "★", "Achievements"), ("stats", "▤", "Stats"), ("news", "✦", "What's New"), ("about", "i", "About"),
+        ("friends", "☺", "Friends"), ("achievements", "★", "Achievements"), ("stats", "▤", "Stats"), ("news", "✦", "What's New"), ("settings", "⚙", "Settings"), ("about", "i", "About"),
     };
 
     public MainWindow()
@@ -177,7 +177,7 @@ public partial class MainWindow : Window
         Child = new TextBlock { Text = text, FontSize = size, FontWeight = FontWeights.Bold, FontFamily = Display, Foreground = B(fg), TextAlignment = TextAlignment.Center },
     };
 
-    private static readonly HashSet<string> Pages = new() { "friends", "achievements", "stats", "news", "about" };
+    private static readonly HashSet<string> Pages = new() { "friends", "achievements", "stats", "news", "settings", "about" };
 
     public void Go(string view)
     {
@@ -193,6 +193,7 @@ public partial class MainWindow : Window
             case "achievements": _ = RenderAchievementsAsync(false); break;
             case "stats": RenderStats(); break;
             case "news": RenderNews(); break;
+            case "settings": RenderSettings(); break;
             case "about": RenderAbout(); break;
             default: RenderAll(); break;
         }

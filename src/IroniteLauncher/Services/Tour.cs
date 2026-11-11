@@ -142,7 +142,7 @@ public static class Tour
             w.CloseModal();
 
             foreach (var (view, name) in new[] { ("custom", "12-non-ironite"), ("card", "13-card-games"), ("sim", "14-simulation"), ("stats", "15-stats"),
-                         ("achievements", "16-achievements"), ("friends", "17-friends"), ("news", "18-whats-new"), ("about", "19-about") })
+                         ("achievements", "16-achievements"), ("friends", "17-friends"), ("news", "18-whats-new"), ("about", "19-about"), ("settings", "20-settings") })
             {
                 w.Go(view);
                 await Settle(view == "achievements" ? 3000 : 900);

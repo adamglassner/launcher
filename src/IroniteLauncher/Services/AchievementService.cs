@@ -208,7 +208,7 @@ public static class AchievementService
 
     private static async Task<AchievementResult> SteamAsync(string profile, string? appId)
     {
-        if (profile == "") throw new InvalidOperationException("add your Steam profile on the Achievements page");
+        if (profile == "") throw new InvalidOperationException("add your Steam profile in Settings");
         if (string.IsNullOrEmpty(appId)) throw new InvalidOperationException("set the game's Steam app ID in Edit details");
         HttpResponseMessage resp;
         try { resp = await Http.GetAsync($"{SteamBase}/{profile}/stats/{Uri.EscapeDataString(appId)}/achievements/?xml=1&l=english"); }
@@ -255,7 +255,7 @@ public static class AchievementService
 
     private static async Task<string> XblGetAsync(string? key, string path)
     {
-        if (string.IsNullOrEmpty(key)) throw new InvalidOperationException("add your OpenXBL key on the Achievements page to see Xbox achievements");
+        if (string.IsNullOrEmpty(key)) throw new InvalidOperationException("add your OpenXBL key in Settings to see Xbox achievements");
         using var req = new HttpRequestMessage(HttpMethod.Get, XblBase + path);
         req.Headers.TryAddWithoutValidation("X-Authorization", key);
         req.Headers.Accept.ParseAdd("application/json");
@@ -268,7 +268,7 @@ public static class AchievementService
             var body = await resp.Content.ReadAsStringAsync();
             return resp.StatusCode switch
             {
-                HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => throw new InvalidOperationException("OpenXBL didn't accept your key; check it on the Achievements page"),
+                HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => throw new InvalidOperationException("OpenXBL didn't accept your key; check it in Settings"),
                 HttpStatusCode.TooManyRequests => throw new InvalidOperationException("OpenXBL's hourly limit was reached; try again later"),
                 HttpStatusCode.OK => body,
                 _ => throw new InvalidOperationException($"OpenXBL answered {(int)resp.StatusCode} {resp.ReasonPhrase}"),
