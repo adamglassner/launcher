@@ -43,6 +43,21 @@ public sealed class FriendsService
     /// <summary>Bumps whenever something shown on the Friends page changes.</summary>
     public int Version { get; private set; }
 
+    /// <summary>The player's own profile (theme, favourite game, sharing), once signed in.</summary>
+    public Profile? MyProfile { get; private set; }
+    public string MyId => _session?.UserId ?? "";
+
+    /// <summary>Asks the launcher for the player's games (play time, achievements) to share with friends.</summary>
+    public Func<Task<List<SharedGame>>>? GamesSnapshot { get; set; }
+
+    // Profile pictures by player id, with when they were last changed.
+    private readonly Dictionary<string, (DateTime? At, System.Windows.Media.ImageSource? Image)> _avatars = new();
+    private DateTime _lastSync;
+
+    /// <summary>A player's profile picture, if they have one and it has been downloaded.</summary>
+    public System.Windows.Media.ImageSource? Avatar(string userId) =>
+        _avatars.TryGetValue(userId, out var a) ? a.Image : null;
+
     /// <summary>Asks the launcher what the player is playing right now (game id and title), for their friends to see.</summary>
     public Func<(string? Id, string? Title)>? NowPlaying { get; set; }
 
@@ -85,6 +100,7 @@ public sealed class FriendsService
         Save();
         Error = null;
         Log.Info($"friends: signed in as {Username}");
+        await LoadMyProfileAsync();
         StartLoop();
     }
 
@@ -101,9 +117,12 @@ public sealed class FriendsService
                 try
                 {
                     var (id, title) = NowPlaying?.Invoke() ?? (null, null);
+                    var stopped = _lastGame != null && id == null;
                     if (n % 2 == 0 || id != _lastGame) await Call(s => Backend.HeartbeatAsync(s, id, title)); // every minute, or right away when a game starts/stops
                     _lastGame = id;
                     await RefreshAsync();
+                    // Shared games: when signing in, after playing, and every 15 minutes.
+                    if (n == 0 || stopped || DateTime.UtcNow - _lastSync > TimeSpan.FromMinutes(15)) await SyncGamesAsync();
                 }
                 catch (Exception ex) { Log.Info($"friends: {ex.Message}"); }
                 n++;
@@ -123,6 +142,7 @@ public sealed class FriendsService
             Friends = friends;
             Requests = requests;
             Error = null;
+            await UpdateAvatarsAsync(friends.Select(f => (f.Id, f.AvatarAt)));
         }
         catch (FriendsException ex) { Error = ex.Message; }
         Version++;
@@ -172,6 +192,90 @@ public sealed class FriendsService
         Friends = new();
         Requests = new();
         Version++;
+    }
+
+    // ---------------------------------------------------------------- profiles and shared games
+
+    private async Task LoadMyProfileAsync()
+    {
+        try
+        {
+            MyProfile = await Call(s => Backend.ProfileAsync(s, s.UserId));
+            if (MyProfile != null) await UpdateAvatarsAsync(new[] { (MyProfile.Id, MyProfile.AvatarAt) });
+        }
+        catch (Exception ex) { Log.Info($"friends: my profile: {ex.Message}"); }
+        Version++;
+    }
+
+    /// <summary>Downloads the profile pictures that are new or changed since they were last downloaded.</summary>
+    private async Task UpdateAvatarsAsync(IEnumerable<(string Id, DateTime? At)> who)
+    {
+        var need = new List<string>();
+        foreach (var (id, at) in who)
+        {
+            if (_avatars.TryGetValue(id, out var have) && have.At == at) continue;
+            if (at == null) { _avatars[id] = (null, null); continue; }
+            need.Add(id);
+        }
+        if (need.Count == 0) return;
+        try
+        {
+            var pics = await Call(s => Backend.AvatarsAsync(s, need));
+            foreach (var (id, at) in who)
+                if (need.Contains(id))
+                {
+                    System.Windows.Media.ImageSource? img = null;
+                    if (pics.TryGetValue(id, out var bytes))
+                        using (var ms = new MemoryStream(bytes)) img = Views.Ui.Decode(ms, 160);
+                    _avatars[id] = (at, img);
+                }
+            Version++;
+        }
+        catch (Exception ex) { Log.Info($"friends: pictures: {ex.Message}"); }
+    }
+
+    public async Task SyncGamesAsync()
+    {
+        _lastSync = DateTime.UtcNow;
+        if (_session == null || GamesSnapshot == null || MyProfile?.ShareGames == false) return;
+        try
+        {
+            var games = await GamesSnapshot();
+            await Call(s => Backend.SyncGamesAsync(s, games));
+            Log.Info($"friends: shared {games.Count} games");
+        }
+        catch (Exception ex) { Log.Info($"friends: share games: {ex.Message}"); }
+    }
+
+    /// <summary>A friend's profile and games (or your own, with your id).</summary>
+    public async Task<(Profile? Profile, FriendLibrary Library)> LoadProfileAsync(string userId)
+    {
+        var profile = await Call(s => Backend.ProfileAsync(s, userId));
+        if (profile != null) await UpdateAvatarsAsync(new[] { (profile.Id, profile.AvatarAt) });
+        FriendLibrary lib;
+        if (userId == MyId)
+        {
+            // Your own: straight from this launcher (what friends see once it's shared).
+            var mine = GamesSnapshot != null ? await GamesSnapshot() : new();
+            lib = new FriendLibrary(profile?.ShareGames != false, mine.OrderByDescending(g => g.LastPlayed).ThenByDescending(g => g.PlaySeconds).ToList());
+        }
+        else lib = await Call(s => Backend.FriendGamesAsync(s, userId));
+        return (profile, lib);
+    }
+
+    /// <summary>Saves the player's profile. avatarJpeg: null = keep the picture, empty = remove it.</summary>
+    public async Task SaveProfileAsync(string theme, string? favoriteGame, string? favoriteTitle, byte[]? avatarJpeg)
+    {
+        await Call(s => Backend.SaveProfileAsync(s, theme, favoriteGame, favoriteTitle, avatarJpeg != null, avatarJpeg is { Length: > 0 } ? avatarJpeg : null));
+        if (avatarJpeg != null) _avatars.Remove(MyId);
+        await LoadMyProfileAsync();
+    }
+
+    public async Task SetShareGamesAsync(bool share)
+    {
+        await Call(s => Backend.SetShareGamesAsync(s, share));
+        await LoadMyProfileAsync();
+        if (share) await SyncGamesAsync();
     }
 
     // ---------------------------------------------------------------- accounts
@@ -227,6 +331,7 @@ public sealed class FriendsService
         }
         SignedOutHere();
         Username = "";
+        MyProfile = null;
         Log.Info("friends: signed out");
     }
 

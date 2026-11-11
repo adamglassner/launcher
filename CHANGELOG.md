@@ -4,6 +4,13 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.5.0] - 2026-11-11
+
+### Added
+- Friend profiles. Click a friend to see their games, how long they've played each one, when they last played, and their achievements (click a game to see them all). Next to each game you also see your own play time.
+- Customize your profile on the Friends page: a profile picture, a theme colour for your banner and avatar ring, and your favorite game. Friends see your picture in their friends list.
+- "Share my games with friends" in Settings, on by default. Turning it off keeps your games, play time and achievements private.
+
 ## [3.4.2] - 2026-11-11
 
 ### Changed

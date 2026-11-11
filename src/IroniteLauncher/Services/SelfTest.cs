@@ -272,6 +272,14 @@ public static class SelfTest
                         var fl = await be.FriendsAsync(fs);
                         var rq = await be.RequestsAsync(fs);
                         await be.GoOfflineAsync(fs);
+                        try
+                        {
+                            await be.SaveProfileAsync(fs, "ember", null, null, false, null);
+                            var prof = await be.ProfileAsync(fs, fs.UserId);
+                            await be.SyncGamesAsync(fs, new());
+                            Check("Friends: profiles and shared games on the real server (supabase/friends.sql is up to date)", prof?.Username == "IroniteBot", prof?.Theme ?? "no profile");
+                        }
+                        catch (Exception ex) { Check("Friends: profiles and shared games on the real server (supabase/friends.sql is up to date)", false, ex.Message); }
                         Check("Friends: account, check-in and friends on the real server", myName == "IroniteBot", $"{myName}, {fl.Count} friends, {rq.Count} requests");
                     }
                     catch (Exception ex) { Check("Friends: account, check-in and friends on the real server", false, ex.Message); }

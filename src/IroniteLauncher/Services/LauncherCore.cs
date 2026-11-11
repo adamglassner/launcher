@@ -1119,6 +1119,42 @@ public sealed class LauncherCore
         return ironite.Concat(results.Where(r => r != null).Select(r => r!)).ToList();
     }
 
+    /// <summary>
+    /// The player's games as their friends see them: every game they've played or have installed (Ironite games,
+    /// web games they've played, and their own games), with play time and achievements.
+    /// </summary>
+    public async Task<List<Friends.SharedGame>> SharedGamesAsync()
+    {
+        var states = States();
+        List<CatalogGame> games;
+        lock (_mu) games = Catalog.Games.ToList();
+        Dictionary<string, AchievementResult> ach;
+        try { ach = (await AchievementsAsync(false)).Where(r => r.Error == null).GroupBy(r => r.Id).ToDictionary(g => g.Key, g => g.First()); }
+        catch { ach = new(); }
+        var list = new List<Friends.SharedGame>();
+        foreach (var g in games)
+        {
+            if (!states.TryGetValue(g.Id, out var st)) continue;
+            var installed = !g.IsWeb && st.Installed;
+            if (st.PlayCount == 0 && st.PlaySeconds == 0 && !installed) continue;
+            List<Friends.SharedAchievement>? items = null;
+            int got = 0, total = 0;
+            if (ach.TryGetValue(g.Id, out var r))
+            {
+                got = r.Unlocked;
+                total = r.Total;
+                items = r.Items.Take(300).Select(a => new Friends.SharedAchievement(
+                    a.Hidden && !a.Unlocked ? "Hidden achievement" : a.Name,
+                    a.Hidden && !a.Unlocked ? null : a.Description,
+                    a.Unlocked, a.UnlockedAt,
+                    a.Icon is { } icon && icon.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? icon : null)).ToList();
+            }
+            list.Add(new Friends.SharedGame(g.Id, g.Title, g.IsLocal ? "own" : "ironite", installed || g.IsLocal, st.PlaySeconds, st.PlayCount, st.LastPlayed,
+                got, total, items));
+        }
+        return list;
+    }
+
     /// <summary>Achievements of every Ironite game in the catalog that has shared some (played at least once).</summary>
     public List<AchievementResult> IroniteAchievements()
     {

@@ -64,18 +64,9 @@ public partial class MainWindow
             return;
         }
 
+        if (_profileId != null) { RenderProfile(); return; }
         PageStart("Friends", null);
-        var who = new WrapPanel { Margin = new Thickness(0, 0, 0, 18) };
-        who.Children.Add(Muted("Signed in as ", 14, TextWrapping.NoWrap));
-        who.Children.Add(T(Fr.Username, 14, weight: FontWeights.SemiBold));
-        who.Children.Add(Muted("  ·  ", 14, TextWrapping.NoWrap));
-        who.Children.Add(Link("Sign out", async () =>
-        {
-            await Fr.SignOutAsync();
-            _fMode = "signin";
-            Refresh(force: true);
-        }, 13));
-        _page.Children.Add(who);
+        _page.Children.Add(MyProfileCard());
         if (Fr.Error != null) _page.Children.Add(Box(T(Fr.Error, 13, B("#f0b1aa"), wrap: TextWrapping.Wrap), true).Also(b => { b.Margin = new Thickness(0, 0, 0, 14); b.MaxWidth = 760; b.HorizontalAlignment = HorizontalAlignment.Left; }));
 
         _page.Children.Add(AddFriendCard());
@@ -104,7 +95,8 @@ public partial class MainWindow
                 : T(f.LastSeen is { } ls ? "Last online " + LastOnline(ls) : "Offline", 12.5, Res("Muted"));
             var friend = f;
             _page.Children.Add(PersonRow(f.Username, status, null,
-                Link("Remove", () => ConfirmRemoveFriend(friend)), online: f.Online));
+                Link("Remove", () => ConfirmRemoveFriend(friend)), online: f.Online, id: f.Id, theme: f.Theme,
+                open: () => OpenProfile(friend.Id)));
         }
 
         if (outgoing.Count > 0)
@@ -128,35 +120,46 @@ public partial class MainWindow
         T(Track(text, 2) + $"   {count}" + (extra != null ? $" · {extra}" : ""), 12, Res("Muted"), FontWeights.Bold, true)
             .Also(t => t.Margin = new Thickness(0, 22, 0, 10));
 
-    /// <summary>A round avatar with the player's initial, coloured from their name.</summary>
-    private static FrameworkElement Avatar(string name, bool? online)
+    /// <summary>
+    /// A round avatar: the player's profile picture, or their initial coloured from their name; with a ring in
+    /// their profile theme and an online dot.
+    /// </summary>
+    private static FrameworkElement Avatar(string name, bool? online, double size = 40, string? id = null, string? theme = null, ImageSource? picture = null)
     {
         var h = 0;
         foreach (var ch in name.ToLowerInvariant()) h = (h * 31 + ch) % 360;
-        var g = new Grid { Width = 40, Height = 40 };
-        g.Children.Add(new Border
+        var g = new Grid { Width = size, Height = size };
+        var pic = picture ?? (id != null ? Fr.Avatar(id) : null);
+        var face = new Border
         {
-            CornerRadius = new CornerRadius(20),
-            Background = new LinearGradientBrush(Hsl(h, 0.5, 0.45), Hsl(h + 35, 0.45, 0.25), 45),
-            Child = new TextBlock
+            CornerRadius = new CornerRadius(size / 2),
+            Background = pic != null ? new ImageBrush(pic) { Stretch = Stretch.UniformToFill } : new LinearGradientBrush(Hsl(h, 0.5, 0.45), Hsl(h + 35, 0.45, 0.25), 45),
+            BorderBrush = theme != null ? new SolidColorBrush(ThemeColor(theme)) : null, BorderThickness = new Thickness(theme != null ? Math.Max(2, size / 22) : 0),
+        };
+        if (pic == null)
+            face.Child = new TextBlock
             {
-                Text = name.Length > 0 ? char.ToUpper(name[0]).ToString() : "?", FontSize = 17, FontWeight = FontWeights.Bold, FontFamily = Display,
+                Text = name.Length > 0 ? char.ToUpper(name[0]).ToString() : "?", FontSize = size * 0.42, FontWeight = FontWeights.Bold, FontFamily = Display,
                 Foreground = B("#F2FFFFFF"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-            },
-        });
+            };
+        g.Children.Add(face);
         if (online != null)
+        {
+            var dot = Math.Max(13, size * 0.3);
             g.Children.Add(new Border
             {
-                Width = 13, Height = 13, CornerRadius = new CornerRadius(7), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom,
+                Width = dot, Height = dot, CornerRadius = new CornerRadius(dot / 2), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom,
                 Background = online == true ? Res("Ok") : B("#5a606c"), BorderBrush = Res("Panel"), BorderThickness = new Thickness(2.5),
             });
+        }
         return g;
     }
 
-    private static Border PersonRow(string name, UIElement status, UIElement? action1, UIElement? action2, bool? online = null)
+    private static UIElement PersonRow(string name, UIElement status, UIElement? action1, UIElement? action2, bool? online = null,
+        string? id = null, string? theme = null, Action? open = null)
     {
         var row = new DockPanel();
-        var av = Avatar(name, online);
+        var av = Avatar(name, online, 40, id, theme);
         av.Margin = new Thickness(0, 0, 14, 0);
         DockPanel.SetDock(av, Dock.Left);
         row.Children.Add(av);
@@ -170,11 +173,18 @@ public partial class MainWindow
         if (status is FrameworkElement fe) fe.Margin = new Thickness(0, 2, 0, 0);
         text.Children.Add(status);
         row.Children.Add(text);
-        return new Border
+        var card = new Border
         {
             Background = Res("Panel"), BorderBrush = Res("Line"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12),
             Padding = new Thickness(14, 10, 16, 10), Margin = new Thickness(0, 0, 0, 8), MaxWidth = 760, HorizontalAlignment = HorizontalAlignment.Stretch, Child = row,
         };
+        if (open == null) return card;
+        // The whole row opens the friend's profile.
+        var b = new Button { Style = Style("BareButton"), Content = card, MaxWidth = 760, HorizontalAlignment = HorizontalAlignment.Stretch, ToolTip = $"See {name}'s profile" };
+        b.MouseEnter += (_, _) => card.BorderBrush = B("#4a5163");
+        b.MouseLeave += (_, _) => card.BorderBrush = Res("Line");
+        b.Click += (_, _) => open();
+        return b;
     }
 
     private UIElement AddFriendCard()

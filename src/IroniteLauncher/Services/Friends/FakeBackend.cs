@@ -9,9 +9,9 @@ public sealed class FakeBackend : IFriendsBackend
     private readonly Dictionary<string, (string Password, string Username, bool Confirmed)> _users = new();
     private readonly List<Friend> _friends = new()
     {
-        new("f1", "NovaPilot", true, "solarsiege", "Solar Siege", DateTime.UtcNow, DateTime.UtcNow.AddDays(-20)),
-        new("f2", "MapleQueen", true, null, null, DateTime.UtcNow, DateTime.UtcNow.AddDays(-12)),
-        new("f3", "CardShark_42", false, null, null, DateTime.UtcNow.AddHours(-5), DateTime.UtcNow.AddDays(-3)),
+        new("f1", "NovaPilot", true, "solarsiege", "Solar Siege", DateTime.UtcNow, DateTime.UtcNow.AddDays(-20), "ocean"),
+        new("f2", "MapleQueen", true, null, null, DateTime.UtcNow, DateTime.UtcNow.AddDays(-12), "rose"),
+        new("f3", "CardShark_42", false, null, null, DateTime.UtcNow.AddHours(-5), DateTime.UtcNow.AddDays(-3), "forest"),
     };
     private readonly List<FriendRequest> _requests = new()
     {
@@ -74,4 +74,39 @@ public sealed class FakeBackend : IFriendsBackend
 
     public Task CancelRequestAsync(Session s, string toId) { _requests.RemoveAll(r => r.Id == toId); return Task.CompletedTask; }
     public Task RemoveFriendAsync(Session s, string friendId) { _friends.RemoveAll(f => f.Id == friendId); return Task.CompletedTask; }
+
+    private string _theme = "ember";
+    private string? _fav, _favTitle;
+    private bool _share = true;
+    private List<SharedGame> _mine = new();
+
+    public Task<Profile?> ProfileAsync(Session s, string userId)
+    {
+        if (userId == "me") return Task.FromResult<Profile?>(new("me", _users.TryGetValue(s.Email, out var u) ? u.Username : "Player", _theme, _fav, _favTitle, null, _share, DateTime.UtcNow));
+        var f = _friends.FirstOrDefault(x => x.Id == userId);
+        return Task.FromResult<Profile?>(f == null ? null : new(f.Id, f.Username, f.Theme, "solarsiege", "Solar Siege", null, true, DateTime.UtcNow.AddDays(-40)));
+    }
+
+    public Task SaveProfileAsync(Session s, string theme, string? favoriteGame, string? favoriteTitle, bool setAvatar, byte[]? avatarJpeg)
+    {
+        (_theme, _fav, _favTitle) = (theme, favoriteGame, favoriteTitle);
+        return Task.CompletedTask;
+    }
+
+    public Task<Dictionary<string, byte[]>> AvatarsAsync(Session s, IEnumerable<string> userIds) => Task.FromResult(new Dictionary<string, byte[]>());
+    public Task SyncGamesAsync(Session s, List<SharedGame> games) { _mine = games; return Task.CompletedTask; }
+    public Task SetShareGamesAsync(Session s, bool share) { _share = share; return Task.CompletedTask; }
+
+    public Task<FriendLibrary> FriendGamesAsync(Session s, string friendId)
+    {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        List<SharedAchievement> Ach(params (string Name, bool On)[] xs) => xs.Select((x, i) => new SharedAchievement(x.Name, "An achievement", x.On, x.On ? now - i * 86400 : 0, null)).ToList();
+        return Task.FromResult(new FriendLibrary(true, new()
+        {
+            new("solarsiege", "Solar Siege", "ironite", true, 14 * 3600 + 1200, 31, now - 600, 23, 54, Ach(("First Contact", true), ("Pluto Patrol", true), ("Boss Rush", false))),
+            new("klondike", "Klondike", "ironite", true, 3 * 3600, 12, now - 86400 * 2, 8, 20, Ach(("Gold Rush", true), ("Clean Sweep", false))),
+            new("hearts", "Hearts", "ironite", true, 5400, 6, now - 86400 * 5, 0, 0, null),
+            new("custom-1", "Balatro", "own", true, 9 * 3600, 20, now - 86400 * 9, 140, 150, null),
+        }));
+    }
 }

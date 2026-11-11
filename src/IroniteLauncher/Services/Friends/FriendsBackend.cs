@@ -5,7 +5,22 @@ namespace Ironite.Launcher.Services.Friends;
 
 public sealed record Session(string AccessToken, string RefreshToken, DateTime ExpiresAt, string UserId, string Email);
 
-public sealed record Friend(string Id, string Username, bool Online, string? Playing, string? PlayingTitle, DateTime? LastSeen, DateTime? Since);
+public sealed record Friend(string Id, string Username, bool Online, string? Playing, string? PlayingTitle, DateTime? LastSeen, DateTime? Since,
+    string Theme = "ember", DateTime? AvatarAt = null);
+
+/// <summary>A player's profile: theme colour, favourite game, and whether they share their games.</summary>
+public sealed record Profile(string Id, string Username, string Theme, string? FavoriteGame, string? FavoriteTitle, DateTime? AvatarAt,
+    bool ShareGames, DateTime? CreatedAt);
+
+/// <summary>One achievement as shared with friends.</summary>
+public sealed record SharedAchievement(string Name, string? Description, bool Unlocked, long At, string? Icon);
+
+/// <summary>One game as shared with friends: play time, when last played, achievements.</summary>
+public sealed record SharedGame(string Id, string Title, string Kind, bool Installed, long PlaySeconds, int PlayCount, long LastPlayed,
+    int AchUnlocked, int AchTotal, List<SharedAchievement>? Achievements);
+
+/// <summary>A friend's games; Shared is false when they've turned sharing off.</summary>
+public sealed record FriendLibrary(bool Shared, List<SharedGame> Games);
 
 public sealed record FriendRequest(string Id, string Username, bool Incoming, DateTime CreatedAt);
 
@@ -45,4 +60,13 @@ public interface IFriendsBackend
     Task AnswerRequestAsync(Session s, string fromId, bool accept);
     Task CancelRequestAsync(Session s, string toId);
     Task RemoveFriendAsync(Session s, string friendId);
+
+    // ---- profiles and shared games
+    Task<Profile?> ProfileAsync(Session s, string userId);
+    /// <summary>Saves theme and favourite game; the picture changes only when setAvatar is true (null removes it).</summary>
+    Task SaveProfileAsync(Session s, string theme, string? favoriteGame, string? favoriteTitle, bool setAvatar, byte[]? avatarJpeg);
+    Task<Dictionary<string, byte[]>> AvatarsAsync(Session s, IEnumerable<string> userIds);
+    Task SyncGamesAsync(Session s, List<SharedGame> games);
+    Task<FriendLibrary> FriendGamesAsync(Session s, string friendId);
+    Task SetShareGamesAsync(Session s, bool share);
 }

@@ -192,7 +192,7 @@ public partial class MainWindow : Window
         MainScroll.ScrollToTop();
         switch (view)
         {
-            case "friends": RenderFriends(); break;
+            case "friends": _profileId = null; RenderFriends(); break;
             case "achievements": _ = RenderAchievementsAsync(false); break;
             case "stats": RenderStats(); break;
             case "news": RenderNews(); break;

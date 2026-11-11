@@ -33,6 +33,7 @@ public partial class App : Application
             var id = Core.States().FirstOrDefault(kv => kv.Value.Running).Key;
             return (id, id == null ? null : Core.Find(id)?.Title);
         };
+        Friends.GamesSnapshot = () => Core.SharedGamesAsync();
         _ = Friends.StartAsync();
     }
     public static string PipeName => $"IroniteLauncher.{Process.GetCurrentProcess().SessionId}.{Environment.UserName}";

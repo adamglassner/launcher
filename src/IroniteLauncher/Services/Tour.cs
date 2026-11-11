@@ -171,6 +171,22 @@ public static class Tour
             w.Go("friends");
             await Settle();
             Shot(w, dir, "17b-friends");
+            var (prof, lib) = await fr.LoadProfileAsync("f1");
+            Check("Friends: a friend's profile and games", prof?.Username == "NovaPilot" && lib.Games.Count == 4, $"{lib.Games.Count} games");
+            await fr.SaveProfileAsync("violet", "klondike", "Klondike", null);
+            Check("Friends: save your profile", fr.MyProfile?.Theme == "violet" && fr.MyProfile.FavoriteTitle == "Klondike");
+            var mine = await App.Core.SharedGamesAsync();
+            Check("Friends: shares played games", mine.Any(g => g.Id == "hearts" && g.PlaySeconds > 0), $"{mine.Count} games");
+            w.OpenProfileForTour("f1");
+            await Settle(1500);
+            Shot(w, dir, "17c-friend-profile");
+            w.Go("friends");
+            await Settle();
+            Shot(w, dir, "17d-friends-themed");
+            w.EditProfileForTour();
+            await Settle();
+            Shot(w, dir, "17e-edit-profile");
+            w.CloseModal();
             await fr.SignOutAsync();
             Check("Friends: sign out", !fr.SignedIn);
 

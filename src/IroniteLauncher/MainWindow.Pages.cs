@@ -530,7 +530,39 @@ public partial class MainWindow
 
     private void RenderSettings()
     {
-        PageStart("Settings", "Connect the accounts the launcher reads achievements from.");
+        PageStart("Settings", null);
+        if (App.Friends.SignedIn)
+        {
+            _page.Children.Add(T("Friends", 16, weight: FontWeights.Bold, display: true).Also(t => t.Margin = new Thickness(0, 20, 0, 4)));
+            var share = new System.Windows.Controls.Primitives.ToggleButton { Style = Style("SwitchButton"), IsChecked = App.Friends.MyProfile?.ShareGames != false, VerticalAlignment = VerticalAlignment.Center };
+            share.Click += async (_, _) =>
+            {
+                var on = share.IsChecked == true;
+                try
+                {
+                    await App.Friends.SetShareGamesAsync(on);
+                    ShowToast(on ? "Your friends can see your games, play time and achievements." : "Your games, play time and achievements are private now.");
+                }
+                catch (Exception ex) { share.IsChecked = !on; Fail(ex); }
+            };
+            var row = new DockPanel { MaxWidth = 760, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 10, 0, 0) };
+            DockPanel.SetDock(share, Dock.Right);
+            row.Children.Add(share);
+            row.Children.Add(new StackPanel
+            {
+                Margin = new Thickness(0, 0, 24, 0),
+                Children =
+                {
+                    T("Share my games with friends", 14, weight: FontWeights.SemiBold),
+                    Muted("Friends can see which games you play, your play time and your achievements on your profile. Turning this off removes what was shared.", 12.5),
+                },
+            });
+            _page.Children.Add(new Border
+            {
+                Background = Res("Panel"), BorderBrush = Res("Line"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(16, 12, 16, 14), MaxWidth = 760, HorizontalAlignment = HorizontalAlignment.Left, Child = row,
+            });
+        }
         _page.Children.Add(T("Achievements from other launchers", 16, weight: FontWeights.Bold, display: true).Also(t => t.Margin = new Thickness(0, 24, 0, 4)));
         _page.Children.Add(Muted("For your non-Ironite games. Their achievements show on the Achievements page.", 13));
         var (profile, key) = Core.AchievementAccounts();

@@ -134,7 +134,7 @@ public sealed class SupabaseBackend(string url, string anonKey) : IFriendsBacken
         if (await Rpc("get_friends", null, s) is JsonArray a)
             foreach (var r in a)
                 list.Add(new Friend(Str(r, "id") ?? "", Str(r, "username") ?? "", r?["online"]?.GetValue<bool>() == true,
-                    Str(r, "playing"), Str(r, "playing_title"), Time(r, "last_seen"), Time(r, "since")));
+                    Str(r, "playing"), Str(r, "playing_title"), Time(r, "last_seen"), Time(r, "since"), Str(r, "theme") ?? "ember", Time(r, "avatar_at")));
         return list;
     }
 
@@ -153,4 +153,65 @@ public sealed class SupabaseBackend(string url, string anonKey) : IFriendsBacken
     public Task AnswerRequestAsync(Session s, string fromId, bool accept) => Rpc("answer_friend_request", new { requester = fromId, accept }, s);
     public Task CancelRequestAsync(Session s, string toId) => Rpc("cancel_friend_request", new { target = toId }, s);
     public Task RemoveFriendAsync(Session s, string friendId) => Rpc("remove_friend", new { friend = friendId }, s);
+
+    // ---- profiles and shared games
+
+    public async Task<Profile?> ProfileAsync(Session s, string userId)
+    {
+        if (await Rpc("get_profile", new { who = userId }, s) is not JsonArray { Count: > 0 } a) return null;
+        var r = a[0];
+        return new Profile(Str(r, "id") ?? userId, Str(r, "username") ?? "", Str(r, "theme") ?? "ember", Str(r, "favorite_game"), Str(r, "favorite_title"),
+            Time(r, "avatar_at"), r?["share_games"]?.GetValue<bool>() != false, Time(r, "created_at"));
+    }
+
+    public Task SaveProfileAsync(Session s, string theme, string? favoriteGame, string? favoriteTitle, bool setAvatar, byte[]? avatarJpeg) =>
+        Rpc("set_my_profile", new
+        {
+            new_theme = theme, fav_game = favoriteGame ?? "", fav_title = favoriteTitle ?? "", set_avatar = setAvatar,
+            new_avatar = avatarJpeg == null ? "" : Convert.ToBase64String(avatarJpeg),
+        }, s);
+
+    public async Task<Dictionary<string, byte[]>> AvatarsAsync(Session s, IEnumerable<string> userIds)
+    {
+        var map = new Dictionary<string, byte[]>();
+        var ids = userIds.Distinct().ToArray();
+        if (ids.Length == 0) return map;
+        if (await Rpc("get_avatars", new { ids }, s) is JsonArray a)
+            foreach (var r in a)
+                if (Str(r, "id") is { } id && Str(r, "avatar") is { } b64)
+                    try { map[id] = Convert.FromBase64String(b64); } catch { /* damaged picture */ }
+        return map;
+    }
+
+    public Task SyncGamesAsync(Session s, List<SharedGame> games) => Rpc("sync_my_games", new
+    {
+        games = games.Select(g => new
+        {
+            id = g.Id, title = g.Title, kind = g.Kind, installed = g.Installed, playSeconds = g.PlaySeconds, playCount = g.PlayCount,
+            lastPlayed = g.LastPlayed, achUnlocked = g.AchUnlocked, achTotal = g.AchTotal,
+            achievements = g.Achievements?.Select(x => new { name = x.Name, description = x.Description, unlocked = x.Unlocked, at = x.At, icon = x.Icon }),
+        }),
+    }, s);
+
+    public async Task<FriendLibrary> FriendGamesAsync(Session s, string friendId)
+    {
+        var games = new List<SharedGame>();
+        var shared = true;
+        if (await Rpc("get_friend_games", new { friend = friendId }, s) is JsonArray a)
+            foreach (var r in a)
+            {
+                if (r?["shared"]?.GetValue<bool>() == false) { shared = false; continue; }
+                List<SharedAchievement>? ach = null;
+                if (r?["achievements"] is JsonArray xs)
+                    ach = xs.Select(x => new SharedAchievement(Str(x, "name") ?? "", Str(x, "description"), x?["unlocked"]?.GetValue<bool>() == true,
+                        x?["at"] is JsonValue at && at.TryGetValue<long>(out var t) ? t : 0, Str(x, "icon"))).ToList();
+                long Num(string k) => r?[k] is JsonValue v && v.TryGetValue<long>(out var n) ? n : 0;
+                games.Add(new SharedGame(Str(r, "game_id") ?? "", Str(r, "title") ?? "", Str(r, "kind") ?? "ironite", r?["installed"]?.GetValue<bool>() == true,
+                    Num("play_seconds"), (int)Num("play_count"), Time(r, "last_played") is { } lp ? new DateTimeOffset(lp, TimeSpan.Zero).ToUnixTimeSeconds() : 0,
+                    (int)Num("ach_unlocked"), (int)Num("ach_total"), ach));
+            }
+        return new FriendLibrary(shared, games);
+    }
+
+    public Task SetShareGamesAsync(Session s, bool share) => Rpc("set_share_games", new { share }, s);
 }
