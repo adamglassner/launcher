@@ -405,7 +405,7 @@ public partial class MainWindow
         card.Children.Add(T(title, 22, weight: FontWeights.Bold, display: true));
         if (sub.Length > 0) card.Children.Add(Muted(sub, 13.5).Also(t => t.Margin = new Thickness(0, 4, 0, 18)));
         card.Children.Add(p);
-        Dispatcher.BeginInvoke(() => (_fMode is "confirm" or "reset" ? code : _fMode == "register" || email.Text.Length == 0 ? email : password).Focus(),
+        Dispatcher.BeginInvoke(() => (_fMode is "confirm" or "reset" ? (Control)code : _fMode == "register" || email.Text.Length == 0 ? email : password).Focus(),
             System.Windows.Threading.DispatcherPriority.Input);
         return new Border
         {
