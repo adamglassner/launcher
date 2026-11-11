@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.4.1] - 2026-11-11
+
+### Changed
+- Big Top Builder is now called Big Top Builder Classic, in the Library, the featured carousel and on its cover art. If you have it installed, nothing changes: it keeps its play time, achievements and saves.
+
 ## [3.4.0] - 2026-11-11
 
 ### Added
