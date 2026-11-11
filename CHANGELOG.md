@@ -4,6 +4,11 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.4.2] - 2026-11-11
+
+### Changed
+- Carnival Constructor is now called Carnival Constructor Classic, in the Library, the featured carousel and on its cover art. If you have it installed, nothing changes: it keeps its play time, achievements and saved run.
+
 ## [3.4.1] - 2026-11-11
 
 ### Changed
