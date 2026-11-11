@@ -268,11 +268,11 @@ public static class SelfTest
                             if (fs == null) throw new Friends.FriendsException("signing up asked for email confirmation (Confirm email is still on)");
                         }
                         await be.HeartbeatAsync(fs, null, null);
-                        var me = await be.MyUsernameAsync(fs);
+                        var myName = await be.MyUsernameAsync(fs);
                         var fl = await be.FriendsAsync(fs);
                         var rq = await be.RequestsAsync(fs);
                         await be.GoOfflineAsync(fs);
-                        Check("Friends: account, check-in and friends on the real server", me == "IroniteBot", $"{me}, {fl.Count} friends, {rq.Count} requests");
+                        Check("Friends: account, check-in and friends on the real server", myName == "IroniteBot", $"{myName}, {fl.Count} friends, {rq.Count} requests");
                     }
                     catch (Exception ex) { Check("Friends: account, check-in and friends on the real server", false, ex.Message); }
                 }
