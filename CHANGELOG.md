@@ -4,6 +4,14 @@ All notable changes to Ironite Launcher are recorded here.
 Versions follow Semantic Versioning (MAJOR.MINOR.PATCH): MAJOR for big overhauls,
 MINOR for new games and features, PATCH for fixes.
 
+## [3.3.0] - 2026-11-11
+
+### Added
+- Carnival Constructor is now available to install from Simulation as a free DEMO (no longer Coming Soon). Build rides, midway games and food stands, set your prices and prize odds, and run three nights at the Pine Hollow County Fair. It downloads and updates from its own GitHub repository like the other games, has its achievements on the Achievements page, and has a spot in the featured carousel.
+
+### Fixed
+- Uninstalling the launcher now also closes Carnival Constructor if it's running, like the other games.
+
 ## [3.2.0] - 2026-11-11
 
 ### Added

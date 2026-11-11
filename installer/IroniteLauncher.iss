@@ -77,7 +77,7 @@ Filename: "{app}\{#MyAppExeName}"; Flags: nowait runasoriginaluser; Check: IsRel
 
 [UninstallRun]
 ; Close the launcher and any Ironite game that's running, so their files can be removed.
-Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM IroniteLauncher.exe /IM Klondike.exe /IM SolarSiege.exe /IM OldMaid.exe /IM Euchre.exe /IM Hearts.exe /IM Cribbage.exe /IM GinRummy.exe /IM Spades.exe /IM MapleLaneFinds.exe /IM Snugfit.exe /IM TexasHoldem.exe /IM Blackjack.exe /IM GoFish.exe /IM Chess.exe /IM Checkers.exe /IM Mahjong.exe /IM Keyhole.exe /IM RewindLife.exe /IM AppalachianTrail.exe"; Flags: runhidden waituntilterminated; RunOnceId: "CloseGames"
+Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM IroniteLauncher.exe /IM Klondike.exe /IM SolarSiege.exe /IM OldMaid.exe /IM Euchre.exe /IM Hearts.exe /IM Cribbage.exe /IM GinRummy.exe /IM Spades.exe /IM MapleLaneFinds.exe /IM Snugfit.exe /IM TexasHoldem.exe /IM Blackjack.exe /IM GoFish.exe /IM Chess.exe /IM Checkers.exe /IM Mahjong.exe /IM Keyhole.exe /IM RewindLife.exe /IM CarnivalConstructor.exe /IM AppalachianTrail.exe"; Flags: runhidden waituntilterminated; RunOnceId: "CloseGames"
 
 [UninstallDelete]
 ; Games the launcher downloaded (saves, settings and play stats in the user's profile are kept).

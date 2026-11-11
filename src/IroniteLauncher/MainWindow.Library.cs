@@ -20,6 +20,7 @@ public partial class MainWindow
     {
         new("klondike", "FEATURED · CARD GAMES", "KLONDIKE", "GOLD RUSH SOLITAIRE"),
         new("rewindlife", "FREE DEMO · SIMULATION", "REWIND LIFE", "MAPLE GROVE, 1986"),
+        new("carnival", "FREE DEMO · SIMULATION", "CARNIVAL CONSTRUCTOR", "A TRAVELING CARNIVAL SIM"),
         new("euchre", "FEATURED · CARD GAMES", "EUCHRE", "A KITCHEN-TABLE CLASSIC"),
         new("oldmaid", "FEATURED · CARD GAMES", "OLD MAID", "A VICTORIAN PARLOR GAME"),
         new("spades", "NEW · CARD GAMES", "SPADES", "A BROOKLYN ROOFTOP CARD GAME"),
