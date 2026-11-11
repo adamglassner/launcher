@@ -38,6 +38,8 @@ public partial class MainWindow : Window
     private readonly StackPanel _page = new() { Visibility = Visibility.Collapsed };
     private readonly Dictionary<string, Button> _nav = new();
     private Border? _instBadge;
+    private Border? _friendsBadge;
+    private int _friendsVersion = -1;
 
     private static readonly (string Id, string Icon, string Label)[] NavItems =
     {
@@ -157,9 +159,9 @@ public partial class MainWindow : Window
             }
             if (id == "friends")
             {
-                var soon = NavBadge(Track("SOON"), "#0FFFFFFF", "#9a9fab", "#2f3542", 9);
-                DockPanel.SetDock(soon, Dock.Right);
-                row.Children.Add(soon);
+                _friendsBadge = NavBadge(Track("SOON"), "#0FFFFFFF", "#9a9fab", "#2f3542", 9);
+                DockPanel.SetDock(_friendsBadge, Dock.Right);
+                row.Children.Add(_friendsBadge);
             }
             var text = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
             text.SetBinding(TextBlock.ForegroundProperty, new System.Windows.Data.Binding("Foreground") { RelativeSource = new System.Windows.Data.RelativeSource(System.Windows.Data.RelativeSourceMode.FindAncestor, typeof(Button), 1) });
@@ -222,6 +224,13 @@ public partial class MainWindow : Window
 
         var csig = $"{Core.Checking}|{Core.LastCheck}|{Core.CheckError}|{(Core.LastCheck is { } t ? Since(t) : "")}";
         if (force || csig != _checkSig) { _checkSig = csig; RenderCheck(); }
+
+        if (App.Friends.Version != _friendsVersion)
+        {
+            _friendsVersion = App.Friends.Version;
+            UpdateFriendsBadge();
+            if (_view == "friends") RenderFriends();
+        }
 
         if (changed) RenderAll();
         else if (_view == "about") RenderAbout();

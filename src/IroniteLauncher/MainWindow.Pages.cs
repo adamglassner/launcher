@@ -31,21 +31,6 @@ public partial class MainWindow
 
     // ---------------------------------------------------------------- Friends
 
-    private void RenderFriends()
-    {
-        PageStart("Friends", "Play Ironite games with the people you know.", Pill("COMING SOON", "soon"));
-        var grid = new AutoGrid { MinItemWidth = 210, Gap = 14, MaxWidth = 760, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 22, 0, 22) };
-        foreach (var (t, d) in new[] { ("Friends list", "Add friends and see who's online."), ("Now playing", "See which games your friends are playing right now."), ("Invites", "Invite a friend to a game in one click.") })
-            grid.Children.Add(new Border
-            {
-                BorderBrush = Res("Line"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14), Padding = new Thickness(18, 16, 18, 16),
-                Background = B("#06FFFFFF"), Opacity = 0.75,
-                Child = new StackPanel { Children = { T(t, 15, weight: FontWeights.SemiBold, display: true), Muted(d, 13).Also(x => x.Margin = new Thickness(0, 4, 0, 0)) } },
-            });
-        _page.Children.Add(grid);
-        _page.Children.Add(Empty("Coming soon", "Friends isn't available yet. It will arrive in a future launcher update, and the launcher updates itself, so there's nothing you need to do."));
-    }
-
     // ---------------------------------------------------------------- Achievements
 
     private List<AchievementResult>? _ach;

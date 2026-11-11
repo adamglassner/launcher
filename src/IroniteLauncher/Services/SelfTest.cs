@@ -250,6 +250,7 @@ public static class SelfTest
                 var notepad = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "notepad.exe");
                 var png = Platform.ExeIconPng(File.Exists(notepad) ? notepad : Environment.ProcessPath!);
                 Check("Program icon", png is { Length: > 100 }, $"{png?.Length ?? 0} bytes");
+                Check("Saved sign-in is encrypted (DPAPI)", Friends.FriendsService.DpapiWorks());
                 Info("Browser for web games", Platform.FindBrowser() != null, Platform.FindBrowser() ?? "none");
                 try
                 {

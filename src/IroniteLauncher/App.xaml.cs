@@ -21,6 +21,20 @@ public partial class App : Application
     public const string MutexName = @"Local\IroniteLauncher";
 
     public static LauncherCore Core { get; } = new();
+    private static Services.Friends.FriendsService? _friends;
+    /// <summary>The player's Ironite account and friends (made on first use, so the tour can pick a test server first).</summary>
+    public static Services.Friends.FriendsService Friends => _friends ??= new();
+
+    /// <summary>Starts Friends: tells it what the player is playing, and signs back in.</summary>
+    public static void StartFriends()
+    {
+        Friends.NowPlaying = () =>
+        {
+            var id = Core.States().FirstOrDefault(kv => kv.Value.Running).Key;
+            return (id, id == null ? null : Core.Find(id)?.Title);
+        };
+        _ = Friends.StartAsync();
+    }
     public static string PipeName => $"IroniteLauncher.{Process.GetCurrentProcess().SessionId}.{Environment.UserName}";
 
     private Mutex? _singleInstance;
@@ -97,6 +111,7 @@ public partial class App : Application
         }
         Core.StartSetup = file => Dispatcher.Invoke(() => RunSetupAndExit(file));
         Core.StartBackground();
+        StartFriends();
         StartPipeServer();
 
         if (playId != null)
@@ -278,6 +293,7 @@ public partial class App : Application
         _exiting = true;
         IsExiting = true;
         _pipeStop?.Cancel();
+        _friends?.GoOffline();
         ReleaseSingleInstance();
         base.OnExit(e);
     }

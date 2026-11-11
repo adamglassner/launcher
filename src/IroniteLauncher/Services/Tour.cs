@@ -62,6 +62,8 @@ public static class Tour
         {
             core.Load();
             core.StartBackground();
+            Environment.SetEnvironmentVariable("IRONITE_FRIENDS_URL", "fake"); // a pretend Friends server
+            App.StartFriends();
             Check("Starts on 2.x data", core.Catalog.Games.Any(g => g.Id == "custom-a1a1a1a1a1a1"));
             w = new MainWindow { Width = 1320, Height = 860, WindowStartupLocation = WindowStartupLocation.Manual, Left = 0, Top = 0 };
             Application.Current.MainWindow = w;
@@ -149,12 +151,29 @@ public static class Tour
             w.CloseModal();
 
             foreach (var (view, name) in new[] { ("custom", "12-non-ironite"), ("card", "13-card-games"), ("sim", "14-simulation"), ("stats", "15-stats"),
-                         ("achievements", "16-achievements"), ("friends", "17-friends"), ("news", "18-whats-new"), ("about", "19-about"), ("settings", "20-settings") })
+                         ("achievements", "16-achievements"), ("news", "18-whats-new"), ("about", "19-about"), ("settings", "20-settings") })
             {
                 w.Go(view);
                 await Settle(view == "achievements" ? 3000 : 900);
                 Shot(w, dir, name);
             }
+
+            // Friends: register, confirm with the emailed code, see friends and requests.
+            w.Go("friends");
+            await Settle();
+            Shot(w, dir, "17-friends-sign-in");
+            var fr = App.Friends;
+            await fr.SignUpAsync("player@example.com", "correct-horse", "AdamG");
+            await fr.ConfirmEmailAsync("player@example.com", "123456");
+            await fr.RefreshAsync();
+            Check("Friends: register and sign in", fr.SignedIn && fr.Username == "AdamG" && fr.Friends.Count == 3, $"{fr.Username}, {fr.Friends.Count} friends");
+            Check("Friends: shows what friends are playing", fr.Friends.Any(f => f.PlayingTitle == "Solar Siege"));
+            w.Refresh(force: true);
+            w.Go("friends");
+            await Settle();
+            Shot(w, dir, "17b-friends");
+            await fr.SignOutAsync();
+            Check("Friends: sign out", !fr.SignedIn);
 
             // Uninstall again.
             await core.UninstallAsync("klondike");
